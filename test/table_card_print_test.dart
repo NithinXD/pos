@@ -99,12 +99,18 @@ void main() {
         currentTotal: 300.0,
       );
 
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: ParcelSettlementSheet(
-              parcel: parcel,
-              onCollectAndClose: (method, [disc, del, comm]) {},
+            body: SingleChildScrollView(
+              child: ParcelSettlementSheet(
+                parcel: parcel,
+                onCollectAndClose: (method, [disc, del, comm]) {},
+              ),
             ),
           ),
         ),

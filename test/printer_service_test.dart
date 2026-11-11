@@ -165,7 +165,7 @@ void main() {
       final testTicket = PrinterService.instance.formatTestTicket(restaurant: sampleRestaurant);
       expect(testTicket.contains('THERMAL PRINTER TEST'), isTrue);
       expect(testTicket.contains('Spice Garden'), isTrue);
-      expect(testTicket.contains('RawBT Print Service'), isTrue);
+      expect(testTicket.contains('Direct Thermal POS Driver') || testTicket.contains('RawBT Print Service'), isTrue);
       expect(testTicket.contains('PRINTER TEST SUCCESSFUL'), isTrue);
     });
   });

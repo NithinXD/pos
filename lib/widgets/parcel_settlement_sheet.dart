@@ -641,37 +641,81 @@ class _ParcelSettlementSheetState extends State<ParcelSettlementSheet> {
 
             const SizedBox(height: 14),
 
-            // Reprint KOT button
-            OutlinedButton.icon(
-              onPressed: () async {
-                final rest = await PosDatabase.instance.getRestaurantDetails();
-                final res = await PrinterService.instance.printKot(
-                  restaurantName: rest.name,
-                  tableName: 'PARCEL: ${parcel.customerName ?? "Takeaway"}',
-                  items: parcel.activeCart,
-                  isRunningKot: false,
-                  orderId: parcel.activeOrderId,
-                  customerName: parcel.customerName,
-                  customerPhone: parcel.customerPhone,
-                  orderTypeLabel: 'PARCEL ORDER',
-                );
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(res.message),
-                    backgroundColor: res.success ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+            // Print Receipt & Reprint KOT buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final rest = await PosDatabase.instance.getRestaurantDetails();
+                      final res = await PrinterService.instance.printBill(
+                        restaurant: rest,
+                        destinationName: 'PARCEL: ${parcel.customerName ?? "Takeaway"}',
+                        items: parcel.activeCart,
+                        total: totalBillAmount,
+                        paymentMethod: _selectedPaymentMethod,
+                        orderId: parcel.activeOrderId,
+                        customerName: parcel.customerName,
+                        customerPhone: parcel.customerPhone,
+                        taxTotal: taxTotal,
+                        netTotal: netTotal,
+                        discountAmount: discountAmount,
+                        deliveryCharge: _deliveryCharge,
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(res.message),
+                          backgroundColor: res.success ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.receipt_rounded, size: 16),
+                    label: const Text('Print Receipt'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      foregroundColor: const Color(0xFF1E40AF),
+                      side: const BorderSide(color: Color(0xFF3B82F6)),
+                      backgroundColor: const Color(0xFFEFF6FF),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
                   ),
-                );
-              },
-              icon: const Icon(Icons.receipt_long, size: 16),
-              label: const Text('Reprint KOT for Kitchen'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 11),
-                foregroundColor: const Color(0xFF7C5DFA),
-                side: const BorderSide(color: Color(0xFF7C5DFA)),
-                backgroundColor: const Color(0xFFF5F3FF),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final rest = await PosDatabase.instance.getRestaurantDetails();
+                      final res = await PrinterService.instance.printKot(
+                        restaurantName: rest.name,
+                        tableName: 'PARCEL: ${parcel.customerName ?? "Takeaway"}',
+                        items: parcel.activeCart,
+                        isRunningKot: false,
+                        orderId: parcel.activeOrderId,
+                        customerName: parcel.customerName,
+                        customerPhone: parcel.customerPhone,
+                        orderTypeLabel: 'PARCEL ORDER',
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(res.message),
+                          backgroundColor: res.success ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.receipt_long, size: 16),
+                    label: const Text('Reprint KOT'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      foregroundColor: const Color(0xFF7C5DFA),
+                      side: const BorderSide(color: Color(0xFF7C5DFA)),
+                      backgroundColor: const Color(0xFFF5F3FF),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 14),

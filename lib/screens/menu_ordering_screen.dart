@@ -936,23 +936,10 @@ class _MenuOrderingScreenState extends State<MenuOrderingScreen> {
                         ],
                       ),
                     ),
-                    if (printResult.isRawBtMissing) ...[
+                    if (!printResult.success) ...[
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                PrinterService.instance.openRawBtOnPlayStore();
-                              },
-                              icon: const Icon(Icons.download, size: 16),
-                              label: const Text('Get RawBT', style: TextStyle(fontSize: 11)),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () {

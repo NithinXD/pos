@@ -345,8 +345,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                           iconBg: const Color(0xFFFEF3C7),
                           iconColor: const Color(0xFFD97706),
                           title: 'Thermal Printer & KOT',
-                          subtitle: 'RawBT ESC/POS integration (Bluetooth, USB, WiFi printers)',
-                          stats: 'Test Print & RawBT Driver',
+                          subtitle: 'Direct ESC/POS Driver (Bluetooth, USB OTG, WiFi)',
+                          stats: '100% Direct Driver • Zero RawBT',
                           onTap: () {
                             _showPrinterSettingsDialog(context);
                           },
@@ -824,16 +824,12 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                             ),
                             items: const [
                               DropdownMenuItem(
-                                value: PrinterConnectionMode.rawbt,
-                                child: Text('RawBT Print Service'),
-                              ),
-                              DropdownMenuItem(
                                 value: PrinterConnectionMode.bluetoothDirect,
-                                child: Text('Direct Bluetooth SPP (No RawBT)'),
+                                child: Text('Direct Bluetooth SPP'),
                               ),
                               DropdownMenuItem(
                                 value: PrinterConnectionMode.usbDirect,
-                                child: Text('Direct USB OTG (No RawBT)'),
+                                child: Text('Direct USB OTG'),
                               ),
                               DropdownMenuItem(
                                 value: PrinterConnectionMode.wifiDirect,
@@ -851,13 +847,11 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            PrinterService.activeMode == PrinterConnectionMode.rawbt
-                                ? 'Routes print jobs through the installed RawBT Android app.'
-                                : PrinterService.activeMode == PrinterConnectionMode.bluetoothDirect
-                                    ? 'Streams ESC/POS commands directly to paired Bluetooth printer without third-party apps.'
-                                    : PrinterService.activeMode == PrinterConnectionMode.usbDirect
-                                        ? 'Streams ESC/POS commands directly via USB OTG cable.'
-                                        : 'Sends ESC/POS commands directly to network printer over TCP socket.',
+                            PrinterService.activeMode == PrinterConnectionMode.bluetoothDirect
+                                ? 'Streams ESC/POS commands directly to paired Bluetooth printer without third-party apps.'
+                                : PrinterService.activeMode == PrinterConnectionMode.usbDirect
+                                    ? 'Streams ESC/POS commands directly via USB OTG cable.'
+                                    : 'Sends ESC/POS commands directly to network printer over TCP socket.',
                             style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
                           ),
                           if (PrinterService.activeMode == PrinterConnectionMode.bluetoothDirect) ...[
@@ -936,15 +930,14 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'How to Connect Physical Printer:',
+                      'Direct Hardware Connection:',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      '1. Turn on printer & pair Bluetooth or connect USB.\n'
-                      '2. Open the RawBT app on your Android device.\n'
-                      '3. Select your printer in RawBT settings.\n'
-                      '4. Any KOT or Bill printed here will route directly to your printer!',
+                      '• Bluetooth: Turn on printer & pair in Android Bluetooth settings.\n'
+                      '• USB OTG: Plug USB cable directly into tablet/phone.\n'
+                      '• WiFi: Connect printer to same local network.',
                       style: TextStyle(fontSize: 12, color: Color(0xFF334155), height: 1.4),
                     ),
                     const SizedBox(height: 16),
@@ -984,19 +977,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0F172A),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // Open RawBT App / Store Button
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        PrinterService.instance.openRawBtOnPlayStore();
-                      },
-                      icon: const Icon(Icons.open_in_new, size: 18),
-                      label: const Text('Open / Install RawBT App'),
-                      style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),

@@ -10,7 +10,6 @@ import '../models/restaurant_model.dart';
 import '../models/report_model.dart';
 
 enum PrinterConnectionMode {
-  rawbt,
   bluetoothDirect,
   usbDirect,
   wifiDirect,
@@ -34,11 +33,10 @@ class PrinterService {
   PrinterService._();
   static final PrinterService instance = PrinterService._();
 
-  static const MethodChannel _rawbtChannel = MethodChannel('rawbt.intent.channel');
   static const MethodChannel _directChannel = MethodChannel('direct.printer.channel');
 
-  /// Global selectable printer connection mode (defaults to rawbt, switchable at runtime)
-  static PrinterConnectionMode activeMode = PrinterConnectionMode.rawbt;
+  /// Global selectable printer connection mode (defaults to bluetoothDirect, 100% direct driver)
+  static PrinterConnectionMode activeMode = PrinterConnectionMode.bluetoothDirect;
 
   /// Selected Bluetooth device address & name
   static String? selectedBluetoothAddress;
@@ -59,11 +57,13 @@ class PrinterService {
     if (_hasLoadedPersistedSettings) return;
     try {
       final savedMode = await PosDatabase.instance.getSetting('printer_active_mode');
-      if (savedMode != null) {
+      if (savedMode != null && savedMode != 'rawbt') {
         activeMode = PrinterConnectionMode.values.firstWhere(
           (m) => m.name == savedMode,
-          orElse: () => PrinterConnectionMode.rawbt,
+          orElse: () => PrinterConnectionMode.bluetoothDirect,
         );
+      } else {
+        activeMode = PrinterConnectionMode.bluetoothDirect;
       }
       final savedBtAddr = await PosDatabase.instance.getSetting('printer_bt_address');
       if (savedBtAddr != null && savedBtAddr.isNotEmpty) {
@@ -420,7 +420,7 @@ class PrinterService {
     buffer.writeln(divider('=', width));
     buffer.writeln(center(name, width));
     buffer.writeln(row('Status:', 'ONLINE / READY', width));
-    buffer.writeln(row('Interface:', 'RawBT Print Service', width));
+    buffer.writeln(row('Interface:', 'Direct Thermal POS Driver', width));
     buffer.writeln(row('Date/Time:', timeStr, width));
     buffer.writeln(divider('-', width));
     buffer.writeln(center('12345678901234567890123456789012', width));
@@ -433,47 +433,15 @@ class PrinterService {
   }
 
   // -------------------------------------------------------------
-  // Print Execution via RawBT MethodChannel
+  // Direct Hardware Print Execution (Zero RawBT)
   // -------------------------------------------------------------
 
-  /// Universal printRawText supporting toggle between RawBT, Bluetooth Direct, USB Direct, and WiFi Socket
+  /// Direct printRawText supporting toggle between Bluetooth Direct, USB Direct, and WiFi Socket
   Future<PrinterResult> printRawText(String text, {String docTitle = 'Receipt'}) async {
     await loadPersistedSettings();
     if (!kIsWeb && Platform.isAndroid) {
       switch (activeMode) {
-        // Mode 1: Legacy RawBT app intent dispatch
-        case PrinterConnectionMode.rawbt:
-          try {
-            final result = await _rawbtChannel.invokeMethod<String>('sendToRawBT', {
-              'text': text,
-              'type': 'text/plain',
-            });
-            debugPrint('RawBT print dispatch result: $result');
-            return PrinterResult(
-              success: true,
-              message: 'Printed successfully via RawBT',
-              formattedText: text,
-            );
-          } on PlatformException catch (e) {
-            final isMissing = e.code == 'UNAVAILABLE' ||
-                (e.message != null && e.message!.toLowerCase().contains('not found'));
-            return PrinterResult(
-              success: false,
-              message: isMissing
-                  ? 'RawBT printer app is not installed on this Android device.'
-                  : 'RawBT error: ${e.message}',
-              isRawBtMissing: isMissing,
-              formattedText: text,
-            );
-          } catch (e) {
-            return PrinterResult(
-              success: false,
-              message: 'RawBT dispatch error: $e',
-              formattedText: text,
-            );
-          }
-
-        // Mode 2: Direct Bluetooth SPP (Zero RawBT)
+        // Mode 1: Direct Bluetooth SPP (Zero RawBT)
         case PrinterConnectionMode.bluetoothDirect:
           try {
             var address = selectedBluetoothAddress;
@@ -827,7 +795,7 @@ class PrinterService {
     return buffer.toString();
   }
 
-  /// Print Sales Report via RawBT or share
+  /// Print Sales Report via Direct Driver or share
   Future<PrinterResult> printSalesReport({
     required RestaurantModel restaurant,
     required PosReportModel report,
@@ -860,18 +828,6 @@ class PrinterService {
     );
   }
 
-  /// Open Google Play Store page for RawBT
-  Future<bool> openRawBtOnPlayStore() async {
-    if (!kIsWeb && Platform.isAndroid) {
-      try {
-        final result = await _rawbtChannel.invokeMethod<bool>('openRawBtPlayStore');
-        return result ?? false;
-      } catch (e) {
-        debugPrint('Error opening Play Store: $e');
-      }
-    }
-    return false;
-  }
 
   /// Show a realistic virtual thermal paper slip on screen (no physical printer required)
   static void showVirtualReceiptDialog(
