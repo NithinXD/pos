@@ -148,19 +148,59 @@ class MainActivity : FlutterActivity() {
             ?: throw Exception("Bluetooth adapter unavailable on this device")
 
         val device = adapter.getRemoteDevice(address)
-        var socket: BluetoothSocket? = null
         try {
-            socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
             adapter.cancelDiscovery()
+        } catch (_: Exception) {}
+
+        var socket: BluetoothSocket? = null
+        var lastException: Exception? = null
+
+        // Attempt 1: Standard Insecure RFCOMM SPP Socket (matches Chinese ESC/POS thermal printers)
+        try {
+            socket = device.createInsecureRfcommSocketToServiceRecord(SPP_UUID)
             socket.connect()
+        } catch (e1: Exception) {
+            lastException = e1
+            try { socket?.close() } catch (_: Exception) {}
+            socket = null
+
+            // Attempt 2: Standard Secure RFCOMM SPP Socket
+            try {
+                socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
+                socket.connect()
+            } catch (e2: Exception) {
+                lastException = e2
+                try { socket?.close() } catch (_: Exception) {}
+                socket = null
+
+                // Attempt 3: Reflection fallback to port 1 (common Android workaround for stubborn BT thermal printers)
+                try {
+                    val m = device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
+                    socket = m.invoke(device, 1) as? BluetoothSocket
+                    socket?.connect()
+                } catch (e3: Exception) {
+                    lastException = e3
+                    try { socket?.close() } catch (_: Exception) {}
+                    socket = null
+                }
+            }
+        }
+
+        if (socket == null || !socket.isConnected) {
+            val errMsg = lastException?.localizedMessage ?: "Unknown Bluetooth connection failure"
+            throw Exception("Could not connect to ${device.name ?: address}. Ensure printer is turned on and paired: $errMsg")
+        }
+
+        try {
             val out = socket.outputStream
             out.write(bytes)
             out.flush()
-            Thread.sleep(200)
+            // Allow printer hardware buffer time to process ESC/POS print & cut before socket teardown
+            Thread.sleep(350)
             return "Printed directly via Bluetooth to ${device.name ?: address}"
         } finally {
             try {
-                socket?.close()
+                socket.close()
             } catch (_: Exception) {}
         }
     }

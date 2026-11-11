@@ -754,8 +754,31 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) {
+        List<Map<String, String>> btPrinters = [];
+        bool isLoadingBt = false;
+
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            void loadBtPrinters() async {
+              setDialogState(() => isLoadingBt = true);
+              final list = await PrinterService.getPairedBluetoothPrinters();
+              setDialogState(() {
+                btPrinters = list;
+                isLoadingBt = false;
+                if (list.isNotEmpty &&
+                    (PrinterService.selectedBluetoothAddress == null ||
+                        !list.any((p) => p['address'] == PrinterService.selectedBluetoothAddress))) {
+                  PrinterService.selectedBluetoothAddress = list.first['address'];
+                  PrinterService.selectedBluetoothName = list.first['name'];
+                }
+              });
+            }
+
+            if (PrinterService.activeMode == PrinterConnectionMode.bluetoothDirect &&
+                btPrinters.isEmpty &&
+                !isLoadingBt) {
+              loadBtPrinters();
+            }
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Row(
@@ -836,6 +859,72 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                                         : 'Sends ESC/POS commands directly to network printer over TCP socket.',
                             style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
                           ),
+                          if (PrinterService.activeMode == PrinterConnectionMode.bluetoothDirect) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Select Paired Printer:',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                                TextButton.icon(
+                                  onPressed: isLoadingBt ? null : loadBtPrinters,
+                                  icon: const Icon(Icons.refresh, size: 14),
+                                  label: const Text('Refresh', style: TextStyle(fontSize: 11)),
+                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            if (isLoadingBt)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                              )
+                            else if (btPrinters.isEmpty)
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.amber.shade200),
+                                ),
+                                child: const Text(
+                                  'No paired Bluetooth printers found.\nPlease pair your thermal printer in Android Bluetooth Settings first.',
+                                  style: TextStyle(fontSize: 11, color: Colors.brown),
+                                ),
+                              )
+                            else
+                              DropdownButtonFormField<String>(
+                                initialValue: PrinterService.selectedBluetoothAddress,
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                                items: btPrinters.map((p) {
+                                  return DropdownMenuItem<String>(
+                                    value: p['address'],
+                                    child: Text(
+                                      '${p['name']} (${p['address']})',
+                                      style: const TextStyle(fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (addr) {
+                                  if (addr != null) {
+                                    setDialogState(() {
+                                      PrinterService.selectedBluetoothAddress = addr;
+                                      final match = btPrinters.firstWhere((p) => p['address'] == addr, orElse: () => {});
+                                      PrinterService.selectedBluetoothName = match['name'];
+                                    });
+                                  }
+                                },
+                              ),
+                          ],
                         ],
                       ),
                     ),
