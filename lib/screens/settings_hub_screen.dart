@@ -779,20 +779,62 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.grey.shade300),
                       ),
-                      child: const Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          const Row(
                             children: [
-                              Icon(Icons.check_circle, size: 16, color: Color(0xFF16A34A)),
+                              Icon(Icons.tune, size: 16, color: Color(0xFF0284C7)),
                               SizedBox(width: 6),
-                              Text('Printer Engine: RawBT Print Service', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              Text('Printer Mode Toggle', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                             ],
                           ),
-                          SizedBox(height: 6),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<PrinterConnectionMode>(
+                            initialValue: PrinterService.activeMode,
+                            decoration: InputDecoration(
+                              labelText: 'Active Printer Engine',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: PrinterConnectionMode.rawbt,
+                                child: Text('RawBT Print Service'),
+                              ),
+                              DropdownMenuItem(
+                                value: PrinterConnectionMode.bluetoothDirect,
+                                child: Text('Direct Bluetooth SPP (No RawBT)'),
+                              ),
+                              DropdownMenuItem(
+                                value: PrinterConnectionMode.usbDirect,
+                                child: Text('Direct USB OTG (No RawBT)'),
+                              ),
+                              DropdownMenuItem(
+                                value: PrinterConnectionMode.wifiDirect,
+                                child: Text('Direct WiFi / LAN Socket (Port 9100)'),
+                              ),
+                            ],
+                            onChanged: (mode) {
+                              if (mode != null) {
+                                setDialogState(() {
+                                  PrinterService.activeMode = mode;
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 8),
                           Text(
-                            'Supports 58mm (2") and 80mm (3") thermal POS receipt printers connected via Bluetooth, USB OTG, or WiFi / Ethernet.',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                            PrinterService.activeMode == PrinterConnectionMode.rawbt
+                                ? 'Routes print jobs through the installed RawBT Android app.'
+                                : PrinterService.activeMode == PrinterConnectionMode.bluetoothDirect
+                                    ? 'Streams ESC/POS commands directly to paired Bluetooth printer without third-party apps.'
+                                    : PrinterService.activeMode == PrinterConnectionMode.usbDirect
+                                        ? 'Streams ESC/POS commands directly via USB OTG cable.'
+                                        : 'Sends ESC/POS commands directly to network printer over TCP socket.',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
                           ),
                         ],
                       ),
