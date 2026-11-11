@@ -4,7 +4,9 @@ import 'database/pos_database.dart';
 import 'screens/tables_screen.dart';
 import 'screens/first_time_setup_screen.dart';
 
-void main() {
+import 'services/printer_service.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Ensure status bar styling looks clean on POS terminals and mobile
   SystemChrome.setSystemUIOverlayStyle(
@@ -13,6 +15,8 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+  // Auto-load saved printer preferences (selected printer, mode) on boot
+  await PrinterService.loadPersistedSettings();
   runApp(const PosApp());
 }
 

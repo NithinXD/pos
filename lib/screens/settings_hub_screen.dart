@@ -845,6 +845,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                                 setDialogState(() {
                                   PrinterService.activeMode = mode;
                                 });
+                                PrinterService.persistSettings(mode: mode);
                               }
                             },
                           ),
@@ -921,6 +922,11 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                                       final match = btPrinters.firstWhere((p) => p['address'] == addr, orElse: () => {});
                                       PrinterService.selectedBluetoothName = match['name'];
                                     });
+                                    final match = btPrinters.firstWhere((p) => p['address'] == addr, orElse: () => {});
+                                    PrinterService.persistSettings(
+                                      btAddress: addr,
+                                      btName: match['name'],
+                                    );
                                   }
                                 },
                               ),

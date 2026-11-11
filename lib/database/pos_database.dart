@@ -757,6 +757,43 @@ class PosDatabase {
     );
   }
 
+  /// Get arbitrary setting from app_settings
+  Future<String?> getSetting(String key) async {
+    final db = await database;
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    ''');
+    final res = await db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    if (res.isNotEmpty) {
+      return res.first['value'] as String?;
+    }
+    return null;
+  }
+
+  /// Save arbitrary setting in app_settings
+  Future<void> saveSetting(String key, String value) async {
+    final db = await database;
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    ''');
+    await db.insert(
+      'app_settings',
+      {'key': key, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   /// Helper to reset setup flag (useful for testing or switching restaurant)
   Future<void> resetFirstTimeSetup() async {
     final db = await database;

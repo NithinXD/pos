@@ -52,6 +52,57 @@ class PrinterService {
   static String wifiPrinterIp = '192.168.1.100';
   static int wifiPrinterPort = 9100;
 
+  static bool _hasLoadedPersistedSettings = false;
+
+  /// Initialize and load saved printer configuration once from SQLite
+  static Future<void> loadPersistedSettings() async {
+    if (_hasLoadedPersistedSettings) return;
+    try {
+      final savedMode = await PosDatabase.instance.getSetting('printer_active_mode');
+      if (savedMode != null) {
+        activeMode = PrinterConnectionMode.values.firstWhere(
+          (m) => m.name == savedMode,
+          orElse: () => PrinterConnectionMode.rawbt,
+        );
+      }
+      final savedBtAddr = await PosDatabase.instance.getSetting('printer_bt_address');
+      if (savedBtAddr != null && savedBtAddr.isNotEmpty) {
+        selectedBluetoothAddress = savedBtAddr;
+      }
+      final savedBtName = await PosDatabase.instance.getSetting('printer_bt_name');
+      if (savedBtName != null && savedBtName.isNotEmpty) {
+        selectedBluetoothName = savedBtName;
+      }
+      _hasLoadedPersistedSettings = true;
+    } catch (e) {
+      debugPrint('Error loading persisted printer settings: $e');
+    }
+  }
+
+  /// Save current printer settings to SQLite so user never has to re-select
+  static Future<void> persistSettings({
+    PrinterConnectionMode? mode,
+    String? btAddress,
+    String? btName,
+  }) async {
+    try {
+      if (mode != null) {
+        activeMode = mode;
+        await PosDatabase.instance.saveSetting('printer_active_mode', mode.name);
+      }
+      if (btAddress != null) {
+        selectedBluetoothAddress = btAddress;
+        await PosDatabase.instance.saveSetting('printer_bt_address', btAddress);
+      }
+      if (btName != null) {
+        selectedBluetoothName = btName;
+        await PosDatabase.instance.saveSetting('printer_bt_name', btName);
+      }
+    } catch (e) {
+      debugPrint('Error persisting printer settings: $e');
+    }
+  }
+
   /// Retrieve list of paired Bluetooth thermal printers
   static Future<List<Map<String, String>>> getPairedBluetoothPrinters() async {
     if (!kIsWeb && Platform.isAndroid) {
@@ -387,6 +438,7 @@ class PrinterService {
 
   /// Universal printRawText supporting toggle between RawBT, Bluetooth Direct, USB Direct, and WiFi Socket
   Future<PrinterResult> printRawText(String text, {String docTitle = 'Receipt'}) async {
+    await loadPersistedSettings();
     if (!kIsWeb && Platform.isAndroid) {
       switch (activeMode) {
         // Mode 1: Legacy RawBT app intent dispatch
@@ -431,6 +483,7 @@ class PrinterService {
                 address = paired.first['address'];
                 selectedBluetoothAddress = address;
                 selectedBluetoothName = paired.first['name'];
+                persistSettings(btAddress: address, btName: selectedBluetoothName);
               }
             }
 
