@@ -1,0 +1,43 @@
+name: flutterbill
+description: A new Flutter project.
+
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons:
+  esc_pos_utils:
+  esc_pos_printer:
+  http:
+  sqflite:
+  path_provider:
+  intl:
+  collection:
+  image:
+  android_intent_plus:
+  flutter_background_service:
+  just_audio:
+  workmanager:
+  flutter_local_notifications:
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints:
+  flutter_launcher_icons:
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/sounds/beep.mp3
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon.png" # Path to your app icon image

@@ -1,0 +1,20 @@
+# This is a generated file; do not edit or check into version control.
+android_intent_plus=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/android_intent_plus-5.2.0/
+audio_session=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/audio_session-0.1.21/
+charset_converter=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/charset_converter-2.3.0/
+flutter_background_service=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/flutter_background_service-5.0.10/
+flutter_background_service_android=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/flutter_background_service_android-6.2.7/
+flutter_background_service_ios=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/flutter_background_service_ios-5.0.3/
+flutter_local_notifications=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/flutter_local_notifications-18.0.1/
+flutter_local_notifications_linux=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/flutter_local_notifications_linux-5.0.0/
+just_audio=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/just_audio-0.9.42/
+just_audio_web=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/just_audio_web-0.4.13/
+path_provider=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/path_provider-2.1.5/
+path_provider_android=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/path_provider_android-2.2.12/
+path_provider_foundation=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/path_provider_foundation-2.4.0/
+path_provider_linux=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/path_provider_linux-2.2.1/
+path_provider_windows=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/path_provider_windows-2.3.0/
+sqflite=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/sqflite-2.4.1/
+sqflite_android=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/sqflite_android-2.4.0/
+sqflite_darwin=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/sqflite_darwin-2.4.1/
+workmanager=/Users/roshansingh_1/.pub-cache/hosted/pub.dev/workmanager-0.5.2/
