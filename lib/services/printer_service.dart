@@ -27,7 +27,28 @@ class PrinterService {
   PrinterService._();
   static final PrinterService instance = PrinterService._();
 
-  static const MethodChannel _channel = MethodChannel('rawbt.intent.channel');
+  static const MethodChannel _rawbtChannel = MethodChannel('rawbt.intent.channel');
+  static const MethodChannel _directChannel = MethodChannel('direct.printer.channel');
+
+  /// Active selected Bluetooth printer address (e.g. "00:11:22:33:44:55")
+  static String? selectedBluetoothAddress;
+  static String? selectedBluetoothName;
+
+  /// Retrieve list of paired Bluetooth thermal printers
+  static Future<List<Map<String, String>>> getPairedBluetoothPrinters() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final List<dynamic>? list =
+            await _directChannel.invokeMethod<List<dynamic>>('getBluetoothDevices');
+        if (list != null) {
+          return list.map((e) => Map<String, String>.from(e as Map)).toList();
+        }
+      } catch (e) {
+        debugPrint('Error retrieving Bluetooth printers: $e');
+      }
+    }
+    return [];
+  }
 
   /// 32 characters for 58mm (2 inch) thermal printers, 42/48 for 80mm (3 inch)
   static const int defaultWidth = 32;
@@ -330,48 +351,69 @@ class PrinterService {
   // Print Execution via RawBT MethodChannel
   // -------------------------------------------------------------
 
-  /// Send formatted text to RawBT on Android or fallback simulation
+  /// Print text directly to paired Bluetooth thermal printer (Zero RawBT dependency)
   Future<PrinterResult> printRawText(String text, {String docTitle = 'Receipt'}) async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        final result = await _channel.invokeMethod<String>('sendToRawBT', {
-          'text': text,
-          'type': 'text/plain',
+        // 1. Check if Bluetooth printer address is configured or discover available device
+        var address = selectedBluetoothAddress;
+        if (address == null || address.isEmpty) {
+          final paired = await getPairedBluetoothPrinters();
+          if (paired.isNotEmpty) {
+            address = paired.first['address'];
+            selectedBluetoothAddress = address;
+            selectedBluetoothName = paired.first['name'];
+          }
+        }
+
+        if (address == null || address.isEmpty) {
+          return PrinterResult(
+            success: false,
+            message: 'No paired Bluetooth thermal printer found. Please pair in Android Settings > Bluetooth.',
+            formattedText: text,
+          );
+        }
+
+        // 2. Encode text with ESC/POS initialization & paper cut
+        final List<int> bytes = [];
+        bytes.addAll([0x1B, 0x40]); // ESC @ (Initialize)
+        bytes.addAll(text.codeUnits);
+        bytes.addAll([0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x01]); // Line feeds + Cut
+
+        final result = await _directChannel.invokeMethod<String>('printBluetoothDirect', {
+          'address': address,
+          'bytes': Uint8List.fromList(bytes),
         });
-        debugPrint('RawBT print dispatch result: $result');
+
+        debugPrint('Direct BT print result: $result');
         return PrinterResult(
           success: true,
-          message: 'Printed successfully via RawBT',
+          message: result ?? 'Printed directly via Bluetooth (${selectedBluetoothName ?? address})',
           formattedText: text,
         );
       } on PlatformException catch (e) {
-        debugPrint('RawBT PlatformException: ${e.code} - ${e.message}');
-        final isMissing = e.code == 'UNAVAILABLE' ||
-            (e.message != null && e.message!.toLowerCase().contains('not found'));
+        debugPrint('Bluetooth Direct PlatformException: ${e.code} - ${e.message}');
         return PrinterResult(
           success: false,
-          message: isMissing
-              ? 'RawBT printer app is not installed on this Android device.'
-              : 'Printer error: ${e.message}',
-          isRawBtMissing: isMissing,
+          message: 'Bluetooth print failed: ${e.message}',
           formattedText: text,
         );
       } catch (e) {
-        debugPrint('Error dispatching print: $e');
+        debugPrint('Error dispatching Bluetooth direct print: $e');
         return PrinterResult(
           success: false,
-          message: 'Print failed: $e',
+          message: 'Bluetooth print error: $e',
           formattedText: text,
         );
       }
     } else {
       // Non-Android platforms (e.g. Windows desktop during development/testing)
-      debugPrint('================= THERMAL PRINTER OUTPUT (${Platform.operatingSystem}) =================');
+      debugPrint('================= DIRECT BLUETOOTH THERMAL PRINTER OUTPUT (${Platform.operatingSystem}) =================');
       debugPrint(text);
-      debugPrint('========================================================================================');
+      debugPrint('========================================================================================================');
       return PrinterResult(
         success: true,
-        message: 'Simulated print on ${Platform.operatingSystem} (Ticket generated)',
+        message: 'Simulated Direct Bluetooth print on ${Platform.operatingSystem}',
         formattedText: text,
       );
     }
@@ -641,7 +683,7 @@ class PrinterService {
   Future<bool> openRawBtOnPlayStore() async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        final result = await _channel.invokeMethod<bool>('openRawBtPlayStore');
+        final result = await _rawbtChannel.invokeMethod<bool>('openRawBtPlayStore');
         return result ?? false;
       } catch (e) {
         debugPrint('Error opening Play Store: $e');
