@@ -27,7 +27,28 @@ class PrinterService {
   PrinterService._();
   static final PrinterService instance = PrinterService._();
 
-  static const MethodChannel _channel = MethodChannel('rawbt.intent.channel');
+  static const MethodChannel _rawbtChannel = MethodChannel('rawbt.intent.channel');
+  static const MethodChannel _directChannel = MethodChannel('direct.printer.channel');
+
+  /// Active selected USB printer deviceId
+  static int? selectedUsbDeviceId;
+  static String? selectedUsbDeviceName;
+
+  /// Retrieve list of attached USB thermal printers
+  static Future<List<Map<String, dynamic>>> getAttachedUsbPrinters() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final List<dynamic>? list =
+            await _directChannel.invokeMethod<List<dynamic>>('getUsbPrinters');
+        if (list != null) {
+          return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      } catch (e) {
+        debugPrint('Error retrieving USB printers: $e');
+      }
+    }
+    return [];
+  }
 
   /// 32 characters for 58mm (2 inch) thermal printers, 42/48 for 80mm (3 inch)
   static const int defaultWidth = 32;
@@ -330,48 +351,69 @@ class PrinterService {
   // Print Execution via RawBT MethodChannel
   // -------------------------------------------------------------
 
-  /// Send formatted text to RawBT on Android or fallback simulation
+  /// Print text directly to connected USB thermal printer via USB OTG (Zero RawBT dependency)
   Future<PrinterResult> printRawText(String text, {String docTitle = 'Receipt'}) async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        final result = await _channel.invokeMethod<String>('sendToRawBT', {
-          'text': text,
-          'type': 'text/plain',
+        // 1. Check if USB printer deviceId is selected or discover attached USB printer
+        var deviceId = selectedUsbDeviceId;
+        if (deviceId == null) {
+          final printers = await getAttachedUsbPrinters();
+          if (printers.isNotEmpty) {
+            deviceId = printers.first['deviceId'] as int?;
+            selectedUsbDeviceId = deviceId;
+            selectedUsbDeviceName = printers.first['name'] as String?;
+          }
+        }
+
+        if (deviceId == null) {
+          return PrinterResult(
+            success: false,
+            message: 'No USB thermal printer detected. Connect printer via USB OTG cable and ensure permission is granted.',
+            formattedText: text,
+          );
+        }
+
+        // 2. Encode text with ESC/POS initialization & paper cut
+        final List<int> bytes = [];
+        bytes.addAll([0x1B, 0x40]); // ESC @ (Initialize)
+        bytes.addAll(text.codeUnits);
+        bytes.addAll([0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x01]); // Line feeds + Cut
+
+        final result = await _directChannel.invokeMethod<String>('printUsbDirect', {
+          'deviceId': deviceId,
+          'bytes': Uint8List.fromList(bytes),
         });
-        debugPrint('RawBT print dispatch result: $result');
+
+        debugPrint('Direct USB print result: $result');
         return PrinterResult(
           success: true,
-          message: 'Printed successfully via RawBT',
+          message: result ?? 'Printed directly via USB (${selectedUsbDeviceName ?? "Device #$deviceId"})',
           formattedText: text,
         );
       } on PlatformException catch (e) {
-        debugPrint('RawBT PlatformException: ${e.code} - ${e.message}');
-        final isMissing = e.code == 'UNAVAILABLE' ||
-            (e.message != null && e.message!.toLowerCase().contains('not found'));
+        debugPrint('USB Direct PlatformException: ${e.code} - ${e.message}');
         return PrinterResult(
           success: false,
-          message: isMissing
-              ? 'RawBT printer app is not installed on this Android device.'
-              : 'Printer error: ${e.message}',
-          isRawBtMissing: isMissing,
+          message: 'USB print failed: ${e.message}',
           formattedText: text,
         );
       } catch (e) {
-        debugPrint('Error dispatching print: $e');
+        debugPrint('Error dispatching USB direct print: $e');
         return PrinterResult(
           success: false,
-          message: 'Print failed: $e',
+          message: 'USB print error: $e',
           formattedText: text,
         );
       }
     } else {
       // Non-Android platforms (e.g. Windows desktop during development/testing)
-      debugPrint('================= THERMAL PRINTER OUTPUT (${Platform.operatingSystem}) =================');
+      debugPrint('================= DIRECT USB THERMAL PRINTER OUTPUT (${Platform.operatingSystem}) =================');
       debugPrint(text);
-      debugPrint('========================================================================================');
+      debugPrint('===================================================================================================');
       return PrinterResult(
         success: true,
-        message: 'Simulated print on ${Platform.operatingSystem} (Ticket generated)',
+        message: 'Simulated Direct USB print on ${Platform.operatingSystem}',
         formattedText: text,
       );
     }
@@ -641,7 +683,7 @@ class PrinterService {
   Future<bool> openRawBtOnPlayStore() async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        final result = await _channel.invokeMethod<bool>('openRawBtPlayStore');
+        final result = await _rawbtChannel.invokeMethod<bool>('openRawBtPlayStore');
         return result ?? false;
       } catch (e) {
         debugPrint('Error opening Play Store: $e');
