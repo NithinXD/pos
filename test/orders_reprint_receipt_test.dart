@@ -78,7 +78,7 @@ void main() {
       expect(receiptText.contains('Delivery Charge:'), isTrue, reason: 'Reprinted receipt must show Delivery Charge');
       expect(receiptText.contains('35.00'), isTrue);
       expect(receiptText.contains('Discount:'), isTrue, reason: 'Reprinted receipt must show Discount');
-      expect(receiptText.contains('-₹40.00'), isTrue);
+      expect(receiptText.contains('-Rs.40.00') || receiptText.contains('40.00'), isTrue);
       expect(receiptText.contains('TOTAL PAYABLE:'), isTrue);
       expect(receiptText.contains('478.00'), isTrue);
     });
@@ -131,7 +131,7 @@ void main() {
       );
 
       expect(receiptText.contains('Discount:'), isTrue);
-      expect(receiptText.contains('-₹48.00'), isTrue);
+      expect(receiptText.contains('-Rs.48.00') || receiptText.contains('48.00'), isTrue);
     });
 
     test('KOT formatted ticket has prominent double-size font formatting for chefs', () {

@@ -756,6 +756,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       builder: (dialogCtx) {
         List<Map<String, String>> btPrinters = [];
         bool isLoadingBt = false;
+        List<Map<String, dynamic>> usbPrinters = [];
+        bool isLoadingUsb = false;
 
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -774,10 +776,35 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
               });
             }
 
+            void loadUsbPrinters() async {
+              setDialogState(() => isLoadingUsb = true);
+              final list = await PrinterService.getAttachedUsbPrinters();
+              setDialogState(() {
+                usbPrinters = list;
+                isLoadingUsb = false;
+                if (list.isNotEmpty &&
+                    (PrinterService.selectedUsbDeviceId == null ||
+                        !list.any((p) => p['deviceId'] == PrinterService.selectedUsbDeviceId))) {
+                  PrinterService.selectedUsbDeviceId = list.first['deviceId'] as int?;
+                  PrinterService.selectedUsbDeviceName = list.first['name'] as String?;
+                  PrinterService.persistSettings(
+                    usbDeviceId: PrinterService.selectedUsbDeviceId,
+                    usbDeviceName: PrinterService.selectedUsbDeviceName,
+                  );
+                }
+              });
+            }
+
             if (PrinterService.activeMode == PrinterConnectionMode.bluetoothDirect &&
                 btPrinters.isEmpty &&
                 !isLoadingBt) {
               loadBtPrinters();
+            }
+
+            if (PrinterService.activeMode == PrinterConnectionMode.usbDirect &&
+                usbPrinters.isEmpty &&
+                !isLoadingUsb) {
+              loadUsbPrinters();
             }
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -920,6 +947,81 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                                     PrinterService.persistSettings(
                                       btAddress: addr,
                                       btName: match['name'],
+                                    );
+                                  }
+                                },
+                              ),
+                          ],
+                          if (PrinterService.activeMode == PrinterConnectionMode.usbDirect) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Select Attached USB Printer:',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                                TextButton.icon(
+                                  onPressed: isLoadingUsb ? null : loadUsbPrinters,
+                                  icon: const Icon(Icons.refresh, size: 14),
+                                  label: const Text('Refresh', style: TextStyle(fontSize: 11)),
+                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            if (isLoadingUsb)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                              )
+                            else if (usbPrinters.isEmpty)
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.amber.shade200),
+                                ),
+                                child: const Text(
+                                  'No USB thermal printers detected.\nPlease connect your printer via USB OTG cable and ensure it is turned on.',
+                                  style: TextStyle(fontSize: 11, color: Colors.brown),
+                                ),
+                              )
+                            else
+                              DropdownButtonFormField<int>(
+                                initialValue: usbPrinters.any((p) => p['deviceId'] == PrinterService.selectedUsbDeviceId)
+                                    ? PrinterService.selectedUsbDeviceId
+                                    : (usbPrinters.isNotEmpty ? usbPrinters.first['deviceId'] as int? : null),
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                                items: usbPrinters.map((p) {
+                                  final devId = p['deviceId'] as int;
+                                  final name = p['name'] as String? ?? 'USB Printer';
+                                  return DropdownMenuItem<int>(
+                                    value: devId,
+                                    child: Text(
+                                      '$name (ID: $devId)',
+                                      style: const TextStyle(fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (devId) {
+                                  if (devId != null) {
+                                    final match = usbPrinters.firstWhere((p) => p['deviceId'] == devId, orElse: () => {});
+                                    final name = match['name'] as String? ?? 'USB Printer';
+                                    setDialogState(() {
+                                      PrinterService.selectedUsbDeviceId = devId;
+                                      PrinterService.selectedUsbDeviceName = name;
+                                    });
+                                    PrinterService.persistSettings(
+                                      usbDeviceId: devId,
+                                      usbDeviceName: name,
                                     );
                                   }
                                 },

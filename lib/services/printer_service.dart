@@ -73,6 +73,14 @@ class PrinterService {
       if (savedBtName != null && savedBtName.isNotEmpty) {
         selectedBluetoothName = savedBtName;
       }
+      final savedUsbId = await PosDatabase.instance.getSetting('printer_usb_device_id');
+      if (savedUsbId != null && savedUsbId.isNotEmpty) {
+        selectedUsbDeviceId = int.tryParse(savedUsbId);
+      }
+      final savedUsbName = await PosDatabase.instance.getSetting('printer_usb_device_name');
+      if (savedUsbName != null && savedUsbName.isNotEmpty) {
+        selectedUsbDeviceName = savedUsbName;
+      }
       _hasLoadedPersistedSettings = true;
     } catch (e) {
       debugPrint('Error loading persisted printer settings: $e');
@@ -84,6 +92,8 @@ class PrinterService {
     PrinterConnectionMode? mode,
     String? btAddress,
     String? btName,
+    int? usbDeviceId,
+    String? usbDeviceName,
   }) async {
     try {
       if (mode != null) {
@@ -97,6 +107,14 @@ class PrinterService {
       if (btName != null) {
         selectedBluetoothName = btName;
         await PosDatabase.instance.saveSetting('printer_bt_name', btName);
+      }
+      if (usbDeviceId != null) {
+        selectedUsbDeviceId = usbDeviceId;
+        await PosDatabase.instance.saveSetting('printer_usb_device_id', usbDeviceId.toString());
+      }
+      if (usbDeviceName != null) {
+        selectedUsbDeviceName = usbDeviceName;
+        await PosDatabase.instance.saveSetting('printer_usb_device_name', usbDeviceName);
       }
     } catch (e) {
       debugPrint('Error persisting printer settings: $e');
@@ -166,6 +184,64 @@ class PrinterService {
     }
     final spaces = width - left.length - right.length;
     return left + (' ' * (spaces > 0 ? spaces : 1)) + right;
+  }
+
+  /// Line formatter for order items:
+  /// - If item name and price fit on one line, prints left-aligned name and right-aligned price.
+  /// - If item name is long, prints the full item name on line 1, then quantity and right-aligned price on line 2.
+  /// - Guarantees prices and quantities are never truncated or obscured.
+  static String itemRow(String itemName, int quantity, double price, String currency, [int width = defaultWidth]) {
+    final right = '$currency${price.toStringAsFixed(2)}';
+    final left = '$itemName x$quantity';
+    if (left.length + right.length < width) {
+      final spaces = width - left.length - right.length;
+      return left + (' ' * (spaces > 0 ? spaces : 1)) + right;
+    }
+    final line2Left = '  x$quantity';
+    final line2Spaces = width - line2Left.length - right.length;
+    return '$itemName\n$line2Left${' ' * (line2Spaces > 0 ? line2Spaces : 1)}$right';
+  }
+
+  /// Safely encodes ticket text into standard ESC/POS bytes for direct thermal printing:
+  /// 1. Initializes printer hardware (ESC @ : 0x1B 0x40)
+  /// 2. Cancels Chinese/Kanji double-byte mode (FS . : 0x1C 0x2E) - CRITICAL: prevents printer from
+  ///    swallowing ASCII digits following non-ASCII bytes
+  /// 3. Selects standard Code Page 0 (CP437 USA: 0x1B 0x74 0x00)
+  /// 4. Converts Unicode symbols (Rupee '₹' -> 'Rs.', curly quotes, em-dashes) to standard single-byte ASCII
+  /// 5. Feeds paper and performs clean paper cut (GS V 1 : 0x1D 0x56 0x01)
+  static Uint8List encodeTicketBytes(String text) {
+    final cleanText = text
+        .replaceAll('₹', 'Rs.')
+        .replaceAll('\u20B9', 'Rs.')
+        .replaceAll('’', "'")
+        .replaceAll('‘', "'")
+        .replaceAll('”', '"')
+        .replaceAll('“', '"')
+        .replaceAll('–', '-')
+        .replaceAll('—', '-')
+        .replaceAll('•', '*')
+        .replaceAll('…', '...');
+
+    final List<int> bytes = [];
+    // ESC @ (Initialize printer hardware)
+    bytes.addAll([0x1B, 0x40]);
+    // FS . (Cancel Chinese/Kanji character mode - prevents digit swallowing)
+    bytes.addAll([0x1C, 0x2E]);
+    // ESC t 0 (Code page 0: CP437 Standard)
+    bytes.addAll([0x1B, 0x74, 0x00]);
+
+    for (int i = 0; i < cleanText.length; i++) {
+      final code = cleanText.codeUnitAt(i);
+      if (code <= 0xFF) {
+        bytes.add(code);
+      } else {
+        bytes.add(0x20); // space for unknown characters
+      }
+    }
+
+    // Line feeds + ESC/POS Paper Cut
+    bytes.addAll([0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x01]);
+    return Uint8List.fromList(bytes);
   }
 
   // -------------------------------------------------------------
@@ -308,7 +384,12 @@ class PrinterService {
     final now = timestamp ?? DateTime.now();
     final timeStr = DateFormat('dd/MM/yyyy HH:mm').format(now);
     final buffer = StringBuffer();
-    final currency = restaurant.currency;
+    final String currency;
+    if (restaurant.currency == '₹' || restaurant.currency.contains('\u20B9')) {
+      currency = 'Rs.';
+    } else {
+      currency = restaurant.currency.trim();
+    }
 
     buffer.writeln(divider('=', width));
     buffer.writeln(center(restaurant.name.toUpperCase(), width));
@@ -347,9 +428,7 @@ class PrinterService {
 
     for (final c in items) {
       totalQty += c.quantity;
-      final lineLeft = '${c.item.name} x${c.quantity}';
-      final lineRight = '$currency${c.totalPrice.toStringAsFixed(2)}';
-      buffer.writeln(row(lineLeft, lineRight, width));
+      buffer.writeln(itemRow(c.item.name, c.quantity, c.totalPrice, currency, width));
 
       final isDrink = c.item.isBeverage ||
           c.item.kitchenType == 'bar' ||
@@ -463,14 +542,11 @@ class PrinterService {
               );
             }
 
-            final List<int> bytes = [];
-            bytes.addAll([0x1B, 0x40]);
-            bytes.addAll(text.codeUnits);
-            bytes.addAll([0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x01]);
+            final bytes = encodeTicketBytes(text);
 
             final result = await _directChannel.invokeMethod<String>('printBluetoothDirect', {
               'address': address,
-              'bytes': Uint8List.fromList(bytes),
+              'bytes': bytes,
             });
 
             return PrinterResult(
@@ -507,14 +583,11 @@ class PrinterService {
               );
             }
 
-            final List<int> bytes = [];
-            bytes.addAll([0x1B, 0x40]);
-            bytes.addAll(text.codeUnits);
-            bytes.addAll([0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x01]);
+            final bytes = encodeTicketBytes(text);
 
             final result = await _directChannel.invokeMethod<String>('printUsbDirect', {
               'deviceId': deviceId,
-              'bytes': Uint8List.fromList(bytes),
+              'bytes': bytes,
             });
 
             return PrinterResult(
@@ -535,10 +608,7 @@ class PrinterService {
           try {
             final socket = await Socket.connect(wifiPrinterIp, wifiPrinterPort,
                 timeout: const Duration(seconds: 4));
-            final List<int> bytes = [];
-            bytes.addAll([0x1B, 0x40]);
-            bytes.addAll(text.codeUnits);
-            bytes.addAll([0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x01]);
+            final bytes = encodeTicketBytes(text);
             socket.add(bytes);
             await socket.flush();
             await socket.close();
@@ -766,7 +836,12 @@ class PrinterService {
     final now = date ?? DateTime.now();
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
     final buffer = StringBuffer();
-    final cur = restaurant.currency;
+    final String cur;
+    if (restaurant.currency == '₹' || restaurant.currency.contains('\u20B9')) {
+      cur = 'Rs.';
+    } else {
+      cur = restaurant.currency.trim();
+    }
 
     buffer.writeln(divider('=', width));
     buffer.writeln(center(restaurant.name.toUpperCase(), width));
