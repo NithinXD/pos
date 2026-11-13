@@ -202,7 +202,7 @@ class PrinterService {
     final now = timestamp ?? DateTime.now();
     final timeStr = DateFormat('dd/MM/yyyy HH:mm').format(now);
     final buffer = StringBuffer();
-    final currency = restaurant.currency;
+    final currency = restaurant.currency == '₹' ? 'Rs.' : restaurant.currency;
 
     buffer.writeln(divider('=', width));
     buffer.writeln(center(restaurant.name.toUpperCase(), width));
@@ -575,7 +575,7 @@ class PrinterService {
     final now = date ?? DateTime.now();
     final dateStr = DateFormat('dd/MM/yyyy').format(now);
     final buffer = StringBuffer();
-    final cur = restaurant.currency;
+    final cur = restaurant.currency == '₹' ? 'Rs.' : restaurant.currency;
 
     buffer.writeln(divider('=', width));
     buffer.writeln(center(restaurant.name.toUpperCase(), width));
