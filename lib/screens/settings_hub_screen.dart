@@ -906,15 +906,55 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                               )
                             else if (btPrinters.isEmpty)
                               Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
                                   color: Colors.amber.shade50,
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(8),
                                   border: Border.all(color: Colors.amber.shade200),
                                 ),
-                                child: const Text(
-                                  'No paired Bluetooth printers found.\nPlease pair your thermal printer in Android Bluetooth Settings first.',
-                                  style: TextStyle(fontSize: 11, color: Colors.brown),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'No paired Bluetooth printers detected.',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.brown),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    const Text(
+                                      '1. Ensure printer is paired in Android Settings > Bluetooth.\n2. Ensure "Nearby Devices / Bluetooth" permission is allowed.',
+                                      style: TextStyle(fontSize: 11, color: Colors.brown),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      children: [
+                                        ElevatedButton.icon(
+                                          onPressed: () async {
+                                            await PrinterService.requestBluetoothPermissions();
+                                            loadBtPrinters();
+                                          },
+                                          icon: const Icon(Icons.bluetooth_searching, size: 14),
+                                          label: const Text('Allow Permission', style: TextStyle(fontSize: 11)),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF7C5DFA),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            minimumSize: Size.zero,
+                                          ),
+                                        ),
+                                        OutlinedButton.icon(
+                                          onPressed: () => PrinterService.openAppSettings(),
+                                          icon: const Icon(Icons.settings, size: 14),
+                                          label: const Text('App Settings', style: TextStyle(fontSize: 11)),
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            minimumSize: Size.zero,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               )
                             else

@@ -121,6 +121,30 @@ class PrinterService {
     }
   }
 
+  /// Request Bluetooth runtime permissions from Android
+  static Future<bool> requestBluetoothPermissions() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final res = await _directChannel.invokeMethod<bool>('requestBluetoothPermissions');
+        return res ?? false;
+      } catch (e) {
+        debugPrint('Error requesting Bluetooth permissions: $e');
+      }
+    }
+    return true;
+  }
+
+  /// Open application settings page so user can toggle permissions if blocked
+  static Future<void> openAppSettings() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        await _directChannel.invokeMethod('openAppSettings');
+      } catch (e) {
+        debugPrint('Error opening app settings: $e');
+      }
+    }
+  }
+
   /// Retrieve list of paired Bluetooth thermal printers
   static Future<List<Map<String, String>>> getPairedBluetoothPrinters() async {
     if (!kIsWeb && Platform.isAndroid) {

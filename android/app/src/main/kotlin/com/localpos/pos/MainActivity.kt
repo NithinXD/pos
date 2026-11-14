@@ -34,6 +34,36 @@ class MainActivity : FlutterActivity() {
                         result.error("BT_ERROR", e.localizedMessage, null)
                     }
                 }
+                "requestBluetoothPermissions" -> {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                        val hasConnect = checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        if (!hasConnect) {
+                            requestPermissions(
+                                arrayOf(
+                                    android.Manifest.permission.BLUETOOTH_CONNECT,
+                                    android.Manifest.permission.BLUETOOTH_SCAN
+                                ),
+                                101
+                            )
+                            result.success(false)
+                        } else {
+                            result.success(true)
+                        }
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "openAppSettings" -> {
+                    try {
+                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", packageName, null)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("ERROR", e.localizedMessage, null)
+                    }
+                }
                 "printBluetoothDirect" -> {
                     val address = call.argument<String>("address")
                     val bytes = call.argument<ByteArray>("bytes")
@@ -130,6 +160,22 @@ class MainActivity : FlutterActivity() {
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         val adapter = bluetoothManager?.adapter ?: BluetoothAdapter.getDefaultAdapter() ?: return emptyList()
 
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            val hasConnect = checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!hasConnect) {
+                runOnUiThread {
+                    requestPermissions(
+                        arrayOf(
+                            android.Manifest.permission.BLUETOOTH_CONNECT,
+                            android.Manifest.permission.BLUETOOTH_SCAN
+                        ),
+                        101
+                    )
+                }
+                return emptyList()
+            }
+        }
+
         val list = mutableListOf<Map<String, String>>()
         try {
             val paired = adapter.bondedDevices
@@ -138,11 +184,29 @@ class MainActivity : FlutterActivity() {
                     list.add(mapOf("name" to (device.name ?: "Bluetooth Printer"), "address" to device.address))
                 }
             }
-        } catch (_: SecurityException) {}
+        } catch (se: SecurityException) {
+            android.util.Log.e("MainActivity", "SecurityException getting bonded devices", se)
+        }
         return list
     }
 
     private fun printBluetoothDirect(address: String, bytes: ByteArray): String {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            val hasConnect = checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!hasConnect) {
+                runOnUiThread {
+                    requestPermissions(
+                        arrayOf(
+                            android.Manifest.permission.BLUETOOTH_CONNECT,
+                            android.Manifest.permission.BLUETOOTH_SCAN
+                        ),
+                        101
+                    )
+                }
+                throw Exception("Bluetooth permission required. Please allow Nearby Devices permission and try again.")
+            }
+        }
+
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         val adapter = bluetoothManager?.adapter ?: BluetoothAdapter.getDefaultAdapter()
             ?: throw Exception("Bluetooth adapter unavailable on this device")
