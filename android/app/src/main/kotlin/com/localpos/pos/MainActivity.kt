@@ -10,6 +10,7 @@ import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.net.Uri
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -32,6 +33,14 @@ class MainActivity : FlutterActivity() {
                         result.success(devices)
                     } catch (e: Exception) {
                         result.error("BT_ERROR", e.localizedMessage, null)
+                    }
+                }
+                "getBluetoothDiagnostics" -> {
+                    try {
+                        val diag = getBluetoothDiagnosticsInfo()
+                        result.success(diag)
+                    } catch (e: Exception) {
+                        result.error("BT_DIAG_ERROR", e.localizedMessage, null)
                     }
                 }
                 "requestBluetoothPermissions" -> {
@@ -156,13 +165,78 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getPairedBluetoothDevices(): List<Map<String, String>> {
+    private fun getBluetoothDiagnosticsInfo(): Map<String, Any?> {
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-        val adapter = bluetoothManager?.adapter ?: BluetoothAdapter.getDefaultAdapter() ?: return emptyList()
+        val adapter = bluetoothManager?.adapter ?: BluetoothAdapter.getDefaultAdapter()
+
+        val sdkInt = android.os.Build.VERSION.SDK_INT
+        var permissionConnect = true
+        var permissionScan = true
+
+        if (sdkInt >= android.os.Build.VERSION_CODES.S) {
+            permissionConnect = checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            permissionScan = checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+
+        val adapterAvailable = adapter != null
+        val adapterEnabled = adapter?.isEnabled ?: false
+
+        val devices = mutableListOf<Map<String, String>>()
+        var bondedCount = 0
+        var errorMsg: String? = null
+
+        if (adapter != null) {
+            try {
+                val paired = adapter.bondedDevices
+                if (paired != null) {
+                    bondedCount = paired.size
+                    for (d in paired) {
+                        devices.add(mapOf(
+                            "name" to (d.name ?: "Unknown"),
+                            "address" to d.address,
+                            "type" to d.type.toString()
+                        ))
+                    }
+                }
+            } catch (se: SecurityException) {
+                errorMsg = "SecurityException: ${se.message}"
+                Log.e("POS_BT", "Diagnostics SecurityException: ${se.message}", se)
+            } catch (e: Exception) {
+                errorMsg = "Exception: ${e.message}"
+                Log.e("POS_BT", "Diagnostics Exception: ${e.message}", e)
+            }
+        }
+
+        return mapOf(
+            "sdkInt" to sdkInt,
+            "adapterAvailable" to adapterAvailable,
+            "adapterEnabled" to adapterEnabled,
+            "permissionConnect" to permissionConnect,
+            "permissionScan" to permissionScan,
+            "bondedCount" to bondedCount,
+            "devices" to devices,
+            "error" to errorMsg
+        )
+    }
+
+    private fun getPairedBluetoothDevices(): List<Map<String, String>> {
+        Log.d("POS_BT", "getPairedBluetoothDevices() called on Android SDK: ${android.os.Build.VERSION.SDK_INT}")
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val adapter = bluetoothManager?.adapter ?: BluetoothAdapter.getDefaultAdapter()
+        if (adapter == null) {
+            Log.e("POS_BT", "BluetoothAdapter is null on this device")
+            return emptyList()
+        }
+        if (!adapter.isEnabled) {
+            Log.w("POS_BT", "Bluetooth is turned OFF in Android settings")
+            return emptyList()
+        }
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             val hasConnect = checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            Log.d("POS_BT", "BLUETOOTH_CONNECT granted: $hasConnect")
             if (!hasConnect) {
+                Log.d("POS_BT", "Triggering requestPermissions for BLUETOOTH_CONNECT & SCAN")
                 runOnUiThread {
                     requestPermissions(
                         arrayOf(
@@ -179,18 +253,25 @@ class MainActivity : FlutterActivity() {
         val list = mutableListOf<Map<String, String>>()
         try {
             val paired = adapter.bondedDevices
+            Log.d("POS_BT", "adapter.bondedDevices count: ${paired?.size ?: 0}")
             if (paired != null) {
                 for (device in paired) {
-                    list.add(mapOf("name" to (device.name ?: "Bluetooth Printer"), "address" to device.address))
+                    val name = device.name ?: "Bluetooth Printer"
+                    val address = device.address
+                    Log.d("POS_BT", " -> Device: '$name' ($address), Type: ${device.type}, BondState: ${device.bondState}")
+                    list.add(mapOf("name" to name, "address" to address))
                 }
             }
         } catch (se: SecurityException) {
-            android.util.Log.e("MainActivity", "SecurityException getting bonded devices", se)
+            Log.e("POS_BT", "SecurityException reading bonded devices: ${se.message}", se)
+        } catch (e: Exception) {
+            Log.e("POS_BT", "General error reading bonded devices: ${e.message}", e)
         }
         return list
     }
 
     private fun printBluetoothDirect(address: String, bytes: ByteArray): String {
+        Log.d("POS_BT", "printBluetoothDirect target: $address, byte count: ${bytes.size}")
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             val hasConnect = checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
             if (!hasConnect) {
@@ -213,6 +294,7 @@ class MainActivity : FlutterActivity() {
 
         val device = adapter.getRemoteDevice(address)
         try {
+            Log.d("POS_BT", "Canceling discovery before connect...")
             adapter.cancelDiscovery()
         } catch (_: Exception) {}
 
@@ -221,28 +303,37 @@ class MainActivity : FlutterActivity() {
 
         // Attempt 1: Standard Insecure RFCOMM SPP Socket (matches Chinese ESC/POS thermal printers)
         try {
+            Log.d("POS_BT", "Attempt 1: createInsecureRfcommSocketToServiceRecord ($SPP_UUID)")
             socket = device.createInsecureRfcommSocketToServiceRecord(SPP_UUID)
             socket.connect()
+            Log.d("POS_BT", "Attempt 1 SUCCESS: Insecure RFCOMM connected.")
         } catch (e1: Exception) {
+            Log.w("POS_BT", "Attempt 1 FAILED: ${e1.message}")
             lastException = e1
             try { socket?.close() } catch (_: Exception) {}
             socket = null
 
             // Attempt 2: Standard Secure RFCOMM SPP Socket
             try {
+                Log.d("POS_BT", "Attempt 2: createRfcommSocketToServiceRecord ($SPP_UUID)")
                 socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
                 socket.connect()
+                Log.d("POS_BT", "Attempt 2 SUCCESS: Secure RFCOMM connected.")
             } catch (e2: Exception) {
+                Log.w("POS_BT", "Attempt 2 FAILED: ${e2.message}")
                 lastException = e2
                 try { socket?.close() } catch (_: Exception) {}
                 socket = null
 
                 // Attempt 3: Reflection fallback to port 1 (common Android workaround for stubborn BT thermal printers)
                 try {
+                    Log.d("POS_BT", "Attempt 3: reflection createRfcommSocket(1)")
                     val m = device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
                     socket = m.invoke(device, 1) as? BluetoothSocket
                     socket?.connect()
+                    Log.d("POS_BT", "Attempt 3 SUCCESS: Reflection port 1 connected.")
                 } catch (e3: Exception) {
+                    Log.e("POS_BT", "Attempt 3 FAILED: ${e3.message}")
                     lastException = e3
                     try { socket?.close() } catch (_: Exception) {}
                     socket = null
@@ -252,19 +343,23 @@ class MainActivity : FlutterActivity() {
 
         if (socket == null || !socket.isConnected) {
             val errMsg = lastException?.localizedMessage ?: "Unknown Bluetooth connection failure"
+            Log.e("POS_BT", "ALL 3 connection attempts failed: $errMsg")
             throw Exception("Could not connect to ${device.name ?: address}. Ensure printer is turned on and paired: $errMsg")
         }
 
         try {
+            Log.d("POS_BT", "Writing ${bytes.size} bytes to printer socket...")
             val out = socket.outputStream
             out.write(bytes)
             out.flush()
             // Allow printer hardware buffer time to process ESC/POS print & cut before socket teardown
             Thread.sleep(350)
+            Log.d("POS_BT", "Write complete and flushed successfully.")
             return "Printed directly via Bluetooth to ${device.name ?: address}"
         } finally {
             try {
                 socket.close()
+                Log.d("POS_BT", "Socket closed cleanly.")
             } catch (_: Exception) {}
         }
     }

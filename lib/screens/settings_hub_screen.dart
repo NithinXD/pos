@@ -755,6 +755,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       context: context,
       builder: (dialogCtx) {
         List<Map<String, String>> btPrinters = [];
+        Map<String, dynamic>? btDiagnostics;
         bool isLoadingBt = false;
         List<Map<String, dynamic>> usbPrinters = [];
         bool isLoadingUsb = false;
@@ -763,8 +764,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
           builder: (context, setDialogState) {
             void loadBtPrinters() async {
               setDialogState(() => isLoadingBt = true);
+              final diag = await PrinterService.getBluetoothDiagnostics();
               final list = await PrinterService.getPairedBluetoothPrinters();
               setDialogState(() {
+                btDiagnostics = diag;
                 btPrinters = list;
                 isLoadingBt = false;
                 if (list.isNotEmpty &&
@@ -991,6 +994,32 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                                   }
                                 },
                               ),
+                            if (btDiagnostics != null) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.blueGrey.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.blueGrey.shade200),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Bluetooth Diagnostics (Live Debug):', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '• BT Adapter: ${btDiagnostics!['adapterEnabled'] == true ? "ON" : "OFF"}\n'
+                                      '• Nearby Devices Permission: ${btDiagnostics!['permissionConnect'] == true ? "GRANTED" : "DENIED"}\n'
+                                      '• Paired Devices in System: ${btDiagnostics!['bondedCount'] ?? 0}'
+                                      '${btDiagnostics!['error'] != null ? "\n• Error: ${btDiagnostics!['error']}" : ""}',
+                                      style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.blueGrey.shade900),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                           if (PrinterService.activeMode == PrinterConnectionMode.usbDirect) ...[
                             const SizedBox(height: 12),

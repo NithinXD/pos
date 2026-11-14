@@ -134,6 +134,23 @@ class PrinterService {
     return true;
   }
 
+  /// Get detailed Bluetooth diagnostic state from Android
+  static Future<Map<String, dynamic>> getBluetoothDiagnostics() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final Map<dynamic, dynamic>? res =
+            await _directChannel.invokeMethod<Map<dynamic, dynamic>>('getBluetoothDiagnostics');
+        if (res != null) {
+          return Map<String, dynamic>.from(res);
+        }
+      } catch (e) {
+        debugPrint('Error getting BT diagnostics: $e');
+        return {'error': e.toString()};
+      }
+    }
+    return {'status': 'Not on Android'};
+  }
+
   /// Open application settings page so user can toggle permissions if blocked
   static Future<void> openAppSettings() async {
     if (!kIsWeb && Platform.isAndroid) {
