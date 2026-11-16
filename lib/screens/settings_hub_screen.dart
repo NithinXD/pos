@@ -754,6 +754,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) {
+        bool printReceiptOnSettle = _restaurant?.printReceiptOnSettle ?? true;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -793,6 +794,47 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                           Text(
                             'Supports 58mm (2") and 80mm (3") thermal POS receipt printers connected via Bluetooth, USB OTG, or WiFi / Ethernet.',
                             style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Switch: Print Receipt On Settle Bill (Values 1 and 0 per Sam Biswas)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.receipt_long_outlined, size: 20, color: Color(0xFF16A34A)),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Print Receipt On Settle Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                Text('1 = Print receipt, 0 = Only settle without printing', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: printReceiptOnSettle,
+                            activeTrackColor: const Color(0xFF38BDF8),
+                            activeThumbColor: const Color(0xFF0F172A),
+                            onChanged: (val) async {
+                              await PosDatabase.instance.setPrintReceiptOnSettle(val);
+                              setDialogState(() => printReceiptOnSettle = val);
+                              if (mounted) {
+                                setState(() {
+                                  if (_restaurant != null) {
+                                    _restaurant = _restaurant!.copyWith(printReceiptOnSettle: val);
+                                  }
+                                });
+                              }
+                            },
                           ),
                         ],
                       ),

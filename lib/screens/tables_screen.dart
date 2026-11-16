@@ -748,6 +748,7 @@ class _TablesScreenState extends State<TablesScreen> {
             final latestIndex = _sitDownTables.indexWhere((t) => t.tableNumber == table.tableNumber);
             _settleAndReleaseTable(latestIndex != -1 ? latestIndex : resolvedIndex, method, discountAmount, deliveryCharge, orderComments);
           },
+          printReceiptOnSettle: _restaurant?.printReceiptOnSettle ?? true,
         );
       },
     );
@@ -797,7 +798,7 @@ class _TablesScreenState extends State<TablesScreen> {
 
       // Print Customer Settlement Bill
       final rest = await PosDatabase.instance.getRestaurantDetails();
-      if (table.activeCart.isNotEmpty) {
+      if (rest.printReceiptOnSettle && table.activeCart.isNotEmpty) {
         PrinterService.instance.printBill(
           restaurant: rest,
           destinationName: table.name,
@@ -818,10 +819,13 @@ class _TablesScreenState extends State<TablesScreen> {
     }
 
     if (!mounted) return;
+    final printReceipt = _restaurant?.printReceiptOnSettle ?? true;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${table.name} bill settled via $paymentMethod! Bill printed. Table is now GREEN (Free).',
+          printReceipt
+              ? '${table.name} bill settled via $paymentMethod! Bill printed. Table is now GREEN (Free).'
+              : '${table.name} bill settled via $paymentMethod! Table is now GREEN (Free).',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF005C53),
@@ -863,7 +867,7 @@ class _TablesScreenState extends State<TablesScreen> {
 
       // Print Customer Receipt for Parcel
       final rest = await PosDatabase.instance.getRestaurantDetails();
-      if (closedParcel.activeCart.isNotEmpty) {
+      if (rest.printReceiptOnSettle && closedParcel.activeCart.isNotEmpty) {
         PrinterService.instance.printBill(
           restaurant: rest,
           destinationName: 'PARCEL: ${closedParcel.customerName ?? "Takeaway"}',
@@ -884,10 +888,13 @@ class _TablesScreenState extends State<TablesScreen> {
     }
 
     if (!mounted) return;
+    final printReceipt = _restaurant?.printReceiptOnSettle ?? true;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Parcel for ${closedParcel.customerName} (${closedParcel.customerPhone}) collected, bill printed & marked paid.',
+          printReceipt
+              ? 'Parcel for ${closedParcel.customerName} (${closedParcel.customerPhone}) collected, bill printed & marked paid.'
+              : 'Parcel for ${closedParcel.customerName} (${closedParcel.customerPhone}) collected & marked paid.',
         ),
         backgroundColor: const Color(0xFF16A34A),
         duration: const Duration(seconds: 3),

@@ -23,6 +23,7 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
   String _selectedCurrency = '₹';
   int _numberOfTables = 10;
   bool _printKotSeparate = false;
+  bool _printReceiptOnSettle = true;
   String _createdAt = '';
   String _updatedAt = '';
 
@@ -67,6 +68,7 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
           _numberOfTables = details.numberOfTables;
           _tablesController.text = details.numberOfTables.toString();
           _printKotSeparate = details.printKotSeparate;
+          _printReceiptOnSettle = details.printReceiptOnSettle;
           _gstnController.text = details.gstnNumber;
           _createdAt = details.createdAt;
           _updatedAt = details.updatedAt;
@@ -107,6 +109,7 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
         numberOfTables: tableCount,
         gstnNumber: _gstnController.text.trim(),
         printKotSeparate: _printKotSeparate,
+        printReceiptOnSettle: _printReceiptOnSettle,
         createdAt: _createdAt,
         updatedAt: DateTime.now().toIso8601String(),
       );
@@ -632,6 +635,103 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: _printKotSeparate ? const Color(0xFF15803D) : const Color(0xFF475569),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Print Receipt On Settle Bill Switch Card (Per Sam Biswas)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0FDF4),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.receipt_long_outlined, color: Color(0xFF16A34A), size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Print Receipt On Settle Bill',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Database field: print_receipt_on_settle (1 = Print receipt, 0 = Settle without printing)',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch(
+                                value: _printReceiptOnSettle,
+                                activeTrackColor: const Color(0xFF38BDF8),
+                                activeThumbColor: const Color(0xFF0F172A),
+                                onChanged: (val) {
+                                  setState(() => _printReceiptOnSettle = val);
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _printReceiptOnSettle ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: _printReceiptOnSettle ? const Color(0xFFBBF7D0) : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _printReceiptOnSettle ? Icons.check_circle_outline : Icons.info_outline,
+                                  size: 18,
+                                  color: _printReceiptOnSettle ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _printReceiptOnSettle
+                                        ? 'Mode 1: Customer receipt automatically prints when settling a table or parcel bill.'
+                                        : 'Mode 0: Bill is settled and order closed directly WITHOUT printing customer receipt.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _printReceiptOnSettle ? const Color(0xFF15803D) : const Color(0xFF475569),
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),

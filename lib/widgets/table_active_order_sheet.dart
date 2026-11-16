@@ -12,6 +12,7 @@ class TableActiveOrderSheet extends StatefulWidget {
   final FutureOr<void> Function(double newDiscount, [bool isPercent, double percentValue])? onDiscountChanged;
   final FutureOr<void> Function(double newDeliveryCharge)? onDeliveryChargeChanged;
   final String currency;
+  final bool printReceiptOnSettle;
 
   const TableActiveOrderSheet({
     super.key,
@@ -21,6 +22,7 @@ class TableActiveOrderSheet extends StatefulWidget {
     this.onDiscountChanged,
     this.onDeliveryChargeChanged,
     this.currency = '₹',
+    this.printReceiptOnSettle = true,
   });
 
   @override
@@ -33,6 +35,7 @@ class _TableActiveOrderSheetState extends State<TableActiveOrderSheet> {
   bool _isDiscountPercent = false;
   double _discountPercent = 0.0;
   late double _deliveryCharge;
+  late bool _printReceiptOnSettle;
 
   @override
   void initState() {
@@ -41,6 +44,7 @@ class _TableActiveOrderSheetState extends State<TableActiveOrderSheet> {
     _discountPercent = widget.table.discountPercent;
     _isDiscountPercent = widget.table.isDiscountPercent;
     _deliveryCharge = 0.0; // Delivery charge disabled for sit down tables
+    _printReceiptOnSettle = widget.printReceiptOnSettle;
   }
 
   @override
@@ -52,6 +56,9 @@ class _TableActiveOrderSheetState extends State<TableActiveOrderSheet> {
     if ((widget.table.discountPercent - oldWidget.table.discountPercent).abs() > 0.001) {
       _discountPercent = widget.table.discountPercent;
       _isDiscountPercent = widget.table.isDiscountPercent;
+    }
+    if (widget.printReceiptOnSettle != oldWidget.printReceiptOnSettle) {
+      _printReceiptOnSettle = widget.printReceiptOnSettle;
     }
     _deliveryCharge = 0.0; // Delivery charge disabled for sit down tables
   }
@@ -701,7 +708,9 @@ class _TableActiveOrderSheetState extends State<TableActiveOrderSheet> {
                     },
                     icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
                     label: Text(
-                      'Print and Settle (${widget.currency}${_totalWithTax.toStringAsFixed(_totalWithTax % 1 == 0 ? 0 : 2)})',
+                      _printReceiptOnSettle
+                          ? 'Print and Settle (${widget.currency}${_totalWithTax.toStringAsFixed(_totalWithTax % 1 == 0 ? 0 : 2)})'
+                          : 'Settle Table (${widget.currency}${_totalWithTax.toStringAsFixed(_totalWithTax % 1 == 0 ? 0 : 2)})',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
