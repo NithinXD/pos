@@ -8,6 +8,7 @@ class RestaurantModel {
   final int numberOfTables;
   final String gstnNumber;
   final bool printKotSeparate;
+  final bool printReceiptOnSettle;
   final String createdAt;
   final String updatedAt;
 
@@ -21,6 +22,7 @@ class RestaurantModel {
     this.numberOfTables = 10,
     this.gstnNumber = '',
     this.printKotSeparate = false,
+    this.printReceiptOnSettle = true,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -28,6 +30,8 @@ class RestaurantModel {
   factory RestaurantModel.fromMap(Map<String, dynamic> map) {
     final kotVal = map['print_kot'] ?? map['print_KOT'] ?? 0;
     final isKotSeparate = kotVal == 1 || kotVal == true || kotVal == '1';
+    final settleVal = map['print_receipt_on_settle'] ?? map['print_receipt_settle'] ?? 1;
+    final isReceiptOnSettle = settleVal == 1 || settleVal == true || settleVal == '1';
     return RestaurantModel(
       id: map['restaurant_id'] as int,
       name: map['restaurant_name'] as String? ?? '',
@@ -38,6 +42,7 @@ class RestaurantModel {
       numberOfTables: map['number_of_tables'] as int? ?? 10,
       gstnNumber: map['restaurant_gstn'] as String? ?? map['restaurant_gstin'] as String? ?? '',
       printKotSeparate: isKotSeparate,
+      printReceiptOnSettle: isReceiptOnSettle,
       createdAt: map['created_at'] as String? ?? '',
       updatedAt: map['updated_at'] as String? ?? '',
     );
@@ -54,6 +59,7 @@ class RestaurantModel {
       'number_of_tables': numberOfTables,
       'restaurant_gstn': gstnNumber,
       'print_kot': printKotSeparate ? 1 : 0,
+      'print_receipt_on_settle': printReceiptOnSettle ? 1 : 0,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };
@@ -68,6 +74,7 @@ class RestaurantModel {
     int? numberOfTables,
     String? gstnNumber,
     bool? printKotSeparate,
+    bool? printReceiptOnSettle,
     String? updatedAt,
   }) {
     return RestaurantModel(
@@ -80,6 +87,7 @@ class RestaurantModel {
       numberOfTables: numberOfTables ?? this.numberOfTables,
       gstnNumber: gstnNumber ?? this.gstnNumber,
       printKotSeparate: printKotSeparate ?? this.printKotSeparate,
+      printReceiptOnSettle: printReceiptOnSettle ?? this.printReceiptOnSettle,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

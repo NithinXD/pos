@@ -58,6 +58,10 @@ class PosDatabase {
         if (!hasPrintKot && restTableInfo.isNotEmpty) {
           await db.execute("ALTER TABLE restaurant_table ADD COLUMN print_kot INTEGER NOT NULL DEFAULT 0;");
         }
+        final hasPrintReceiptOnSettle = restTableInfo.any((col) => col['name'] == 'print_receipt_on_settle');
+        if (!hasPrintReceiptOnSettle && restTableInfo.isNotEmpty) {
+          await db.execute("ALTER TABLE restaurant_table ADD COLUMN print_receipt_on_settle INTEGER NOT NULL DEFAULT 1;");
+        }
 
         // Check if order columns exist in order_table, if not, add them
         final orderTableInfo = await db.rawQuery("PRAGMA table_info(order_table);");
@@ -137,6 +141,7 @@ class PosDatabase {
         number_of_tables INTEGER NOT NULL DEFAULT 10 CHECK (number_of_tables > 0),
         restaurant_gstn TEXT NOT NULL DEFAULT '',
         print_kot INTEGER NOT NULL DEFAULT 0,
+        print_receipt_on_settle INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -717,6 +722,7 @@ class PosDatabase {
         'restaurant_currency': currency ?? '₹',
         'number_of_tables': numberOfTables,
         'print_kot': 0,
+        'print_receipt_on_settle': 1,
         'created_at': now,
         'updated_at': now,
       });
@@ -854,6 +860,7 @@ class PosDatabase {
         'number_of_tables': restaurant.numberOfTables,
         'restaurant_gstn': restaurant.gstnNumber,
         'print_kot': restaurant.printKotSeparate ? 1 : 0,
+        'print_receipt_on_settle': restaurant.printReceiptOnSettle ? 1 : 0,
         'updated_at': now,
       },
       where: 'restaurant_id = 1',
@@ -879,6 +886,27 @@ class PosDatabase {
         });
       }
     }
+  }
+
+  /// Get Print Receipt On Settle Bill setting (1 = print, 0 = only settle without printing)
+  Future<bool> getPrintReceiptOnSettle() async {
+    final rest = await getRestaurantDetails();
+    return rest.printReceiptOnSettle;
+  }
+
+  /// Toggle Print Receipt On Settle Bill setting
+  Future<void> setPrintReceiptOnSettle(bool enabled) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    await db.update(
+      'restaurant_table',
+      {
+        'print_receipt_on_settle': enabled ? 1 : 0,
+        'updated_at': now,
+      },
+      where: 'restaurant_id = 1',
+    );
+    await saveSetting('print_receipt_on_settle', enabled ? '1' : '0');
   }
 
   // ==========================================
