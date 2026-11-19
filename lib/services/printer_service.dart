@@ -8,6 +8,7 @@ import '../database/pos_database.dart';
 import '../models/menu_item_model.dart';
 import '../models/restaurant_model.dart';
 import '../models/report_model.dart';
+import 'windows_spooler_service.dart';
 
 enum PrinterConnectionMode {
   bluetoothDirect,
@@ -46,6 +47,9 @@ class PrinterService {
   static int? selectedUsbDeviceId;
   static String? selectedUsbDeviceName;
 
+  /// Selected Windows PC USB Thermal Printer name (via Winspool RAW mode)
+  static String? selectedWindowsPrinter;
+
   /// WiFi / Network printer IP and Port
   static String wifiPrinterIp = '192.168.1.100';
   static int wifiPrinterPort = 9100;
@@ -81,6 +85,12 @@ class PrinterService {
       if (savedUsbName != null && savedUsbName.isNotEmpty) {
         selectedUsbDeviceName = savedUsbName;
       }
+      final savedWinPrinter = await PosDatabase.instance.getSetting('printer_windows_name');
+      if (savedWinPrinter != null && savedWinPrinter.isNotEmpty) {
+        selectedWindowsPrinter = savedWinPrinter;
+      } else if (!kIsWeb && Platform.isWindows) {
+        selectedWindowsPrinter = WindowsDirectSpooler.getDefaultPrinter();
+      }
       _hasLoadedPersistedSettings = true;
     } catch (e) {
       debugPrint('Error loading persisted printer settings: $e');
@@ -94,6 +104,7 @@ class PrinterService {
     String? btName,
     int? usbDeviceId,
     String? usbDeviceName,
+    String? windowsPrinterName,
   }) async {
     try {
       if (mode != null) {
@@ -115,6 +126,10 @@ class PrinterService {
       if (usbDeviceName != null) {
         selectedUsbDeviceName = usbDeviceName;
         await PosDatabase.instance.saveSetting('printer_usb_device_name', usbDeviceName);
+      }
+      if (windowsPrinterName != null) {
+        selectedWindowsPrinter = windowsPrinterName;
+        await PosDatabase.instance.saveSetting('printer_windows_name', windowsPrinterName);
       }
     } catch (e) {
       debugPrint('Error persisting printer settings: $e');
@@ -190,6 +205,14 @@ class PrinterService {
       } catch (e) {
         debugPrint('Error retrieving USB printers: $e');
       }
+    }
+    return [];
+  }
+
+  /// Retrieve list of installed Windows printers (for PC version direct USB printing)
+  static List<String> getWindowsPrinters() {
+    if (!kIsWeb && Platform.isWindows) {
+      return WindowsDirectSpooler.getInstalledPrinters();
     }
     return [];
   }
@@ -666,8 +689,63 @@ class PrinterService {
             );
           }
       }
+    } else if (!kIsWeb && Platform.isWindows) {
+      // Direct Windows PC USB Thermal Printing (RAW Winspooler)
+      try {
+        var printer = selectedWindowsPrinter;
+        if (printer == null || printer.isEmpty) {
+          final installed = WindowsDirectSpooler.getInstalledPrinters();
+          if (installed.isNotEmpty) {
+            printer = installed.firstWhere(
+              (p) {
+                final pl = p.toLowerCase();
+                return pl.contains('pos') ||
+                    pl.contains('thermal') ||
+                    pl.contains('receipt') ||
+                    pl.contains('xp-') ||
+                    pl.contains('rp-') ||
+                    pl.contains('usb');
+              },
+              orElse: () => WindowsDirectSpooler.getDefaultPrinter() ?? installed.first,
+            );
+            selectedWindowsPrinter = printer;
+            persistSettings(windowsPrinterName: printer);
+          }
+        }
+
+        if (printer == null || printer.isEmpty) {
+          debugPrint('No Windows thermal printer selected. Simulating print output on Windows:');
+          debugPrint(text);
+          return PrinterResult(
+            success: false,
+            message: 'No Windows printer found or selected. Connect USB printer or select in Settings.',
+            formattedText: text,
+          );
+        }
+
+        final bytes = encodeTicketBytes(text);
+        final success = WindowsDirectSpooler.printRawBytes(
+          printerName: printer,
+          bytes: bytes,
+          docTitle: docTitle,
+        );
+
+        return PrinterResult(
+          success: success,
+          message: success
+              ? 'Printed directly via Windows USB Spooler ($printer)'
+              : 'Failed to write RAW bytes to Windows printer ($printer)',
+          formattedText: text,
+        );
+      } catch (e) {
+        return PrinterResult(
+          success: false,
+          message: 'Windows direct print error: $e',
+          formattedText: text,
+        );
+      }
     } else {
-      // Non-Android platforms (e.g. Windows desktop during development/testing)
+      // Non-Android / Non-Windows platforms (e.g. Web, macOS, Linux simulation)
       debugPrint('================= UNIVERSAL PRINTER OUTPUT ($activeMode - ${Platform.operatingSystem}) =================');
       debugPrint(text);
       debugPrint('========================================================================================================');

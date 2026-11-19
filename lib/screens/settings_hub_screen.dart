@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../database/pos_database.dart';
 import '../models/restaurant_model.dart';
@@ -759,10 +761,39 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         bool isLoadingBt = false;
         List<Map<String, dynamic>> usbPrinters = [];
         bool isLoadingUsb = false;
+        List<String> winPrinters = [];
+        bool isLoadingWin = false;
         bool printReceiptOnSettle = _restaurant?.printReceiptOnSettle ?? true;
 
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            void loadWindowsPrinters() {
+              setDialogState(() => isLoadingWin = true);
+              final list = PrinterService.getWindowsPrinters();
+              setDialogState(() {
+                winPrinters = list;
+                isLoadingWin = false;
+                if (list.isNotEmpty &&
+                    (PrinterService.selectedWindowsPrinter == null ||
+                        !list.contains(PrinterService.selectedWindowsPrinter))) {
+                  PrinterService.selectedWindowsPrinter = list.firstWhere(
+                    (p) {
+                      final pl = p.toLowerCase();
+                      return pl.contains('pos') ||
+                          pl.contains('thermal') ||
+                          pl.contains('receipt') ||
+                          pl.contains('xp-') ||
+                          pl.contains('usb');
+                    },
+                    orElse: () => list.first,
+                  );
+                  PrinterService.persistSettings(
+                    windowsPrinterName: PrinterService.selectedWindowsPrinter,
+                  );
+                }
+              });
+            }
+
             void loadBtPrinters() async {
               setDialogState(() => isLoadingBt = true);
               final diag = await PrinterService.getBluetoothDiagnostics();
@@ -809,6 +840,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                 usbPrinters.isEmpty &&
                 !isLoadingUsb) {
               loadUsbPrinters();
+            }
+
+            if (!kIsWeb && Platform.isWindows && winPrinters.isEmpty && !isLoadingWin) {
+              loadWindowsPrinters();
             }
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1022,7 +1057,75 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                               ),
                             ],
                           ],
-                          if (PrinterService.activeMode == PrinterConnectionMode.usbDirect) ...[
+                          if (!kIsWeb && Platform.isWindows) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Select Windows USB Thermal Printer:',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                                TextButton.icon(
+                                  onPressed: isLoadingWin ? null : loadWindowsPrinters,
+                                  icon: const Icon(Icons.refresh, size: 14),
+                                  label: const Text('Refresh', style: TextStyle(fontSize: 11)),
+                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            if (isLoadingWin)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                              )
+                            else if (winPrinters.isEmpty)
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.amber.shade200),
+                                ),
+                                child: const Text(
+                                  'No Windows printers detected.\nPlease connect your USB thermal printer or install its Windows driver.',
+                                  style: TextStyle(fontSize: 11, color: Colors.brown),
+                                ),
+                              )
+                            else
+                              DropdownButtonFormField<String>(
+                                initialValue: winPrinters.contains(PrinterService.selectedWindowsPrinter)
+                                    ? PrinterService.selectedWindowsPrinter
+                                    : (winPrinters.isNotEmpty ? winPrinters.first : null),
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                                items: winPrinters.map((p) {
+                                  return DropdownMenuItem<String>(
+                                    value: p,
+                                    child: Text(
+                                      p,
+                                      style: const TextStyle(fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (pName) {
+                                  if (pName != null) {
+                                    setDialogState(() {
+                                      PrinterService.selectedWindowsPrinter = pName;
+                                    });
+                                    PrinterService.persistSettings(
+                                      windowsPrinterName: pName,
+                                    );
+                                  }
+                                },
+                              ),
+                          ] else if (PrinterService.activeMode == PrinterConnectionMode.usbDirect) ...[
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
