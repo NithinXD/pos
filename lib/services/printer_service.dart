@@ -323,6 +323,7 @@ class PrinterService {
     String? customerPhone,
     String? orderTypeLabel,
     String? kotSection,
+    String? orderNotes,
     int width = defaultWidth,
   }) {
     final now = timestamp ?? DateTime.now();
@@ -409,6 +410,14 @@ class PrinterService {
         }
         buffer.writeln(divider('-', width));
       }
+    }
+
+    // Order Note printed above number of items per Sam Biswas specification
+    final cleanOrderNotes = (orderNotes ?? '').trim();
+    if (cleanOrderNotes.isNotEmpty) {
+      buffer.writeln(divider('-', width));
+      buffer.writeln('$escBoldOn*** ORDER NOTE / INSTRUCTIONS ***$escBoldOff');
+      buffer.writeln('$escDoubleSize$cleanOrderNotes$escNormalSize');
     }
 
     buffer.writeln(divider('-', width));
@@ -785,6 +794,7 @@ class PrinterService {
     String? customerName,
     String? customerPhone,
     String? orderTypeLabel,
+    String? orderNotes,
     bool? printKotSeparate,
   }) async {
     bool shouldSplit = printKotSeparate ?? false;
@@ -831,6 +841,7 @@ class PrinterService {
           customerPhone: customerPhone,
           orderTypeLabel: orderTypeLabel,
           kotSection: 'FOOD',
+          orderNotes: orderNotes,
         );
         final foodRes = await printRawText(foodTicket, docTitle: 'KOT Food - $tableName');
 
@@ -848,6 +859,7 @@ class PrinterService {
           customerPhone: customerPhone,
           orderTypeLabel: orderTypeLabel,
           kotSection: 'DRINKS',
+          orderNotes: orderNotes,
         );
         final drinksRes = await printRawText(drinksTicket, docTitle: 'KOT Drinks - $tableName');
 
@@ -871,6 +883,7 @@ class PrinterService {
           customerPhone: customerPhone,
           orderTypeLabel: orderTypeLabel,
           kotSection: 'FOOD',
+          orderNotes: orderNotes,
         );
         return await printRawText(foodTicket, docTitle: 'KOT Food - $tableName');
       } else if (printDrinks) {
@@ -885,6 +898,7 @@ class PrinterService {
           customerPhone: customerPhone,
           orderTypeLabel: orderTypeLabel,
           kotSection: 'DRINKS',
+          orderNotes: orderNotes,
         );
         return await printRawText(drinksTicket, docTitle: 'KOT Drinks - $tableName');
       }
@@ -900,6 +914,7 @@ class PrinterService {
       customerName: customerName,
       customerPhone: customerPhone,
       orderTypeLabel: orderTypeLabel,
+      orderNotes: orderNotes,
     );
     return await printRawText(ticket, docTitle: 'KOT - $tableName');
   }

@@ -13,6 +13,8 @@ import '../services/excel_export_service.dart';
 import '../services/excel_import_service.dart';
 import '../services/printer_service.dart';
 import '../direct_printer_app.dart';
+import '../models/order_note_model.dart';
+import '../models/employee_model.dart';
 
 class SettingsHubScreen extends StatefulWidget {
   final bool isAuthenticated;
@@ -29,6 +31,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   int _itemCount = 0;
   int _enabledItemCount = 0;
   int _zoneCount = 0;
+  int _orderNotesCount = 0;
+  int _employeeCount = 0;
   bool _isLoading = true;
 
   late bool _isUnlocked;
@@ -199,6 +203,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       final cats = await PosDatabase.instance.getAllCategories();
       final items = await PosDatabase.instance.getAllMenuItems();
       final zones = await PosDatabase.instance.getDeliveryZones();
+      final notes = await PosDatabase.instance.getOrderNotes();
+      final employees = await PosDatabase.instance.getEmployees();
 
       if (mounted) {
         setState(() {
@@ -208,6 +214,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
           _itemCount = items.length;
           _enabledItemCount = items.where((i) => i.status == 1).length;
           _zoneCount = zones.length;
+          _orderNotesCount = notes.length;
+          _employeeCount = employees.length;
           _isLoading = false;
         });
       }
@@ -407,6 +415,32 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                           },
                         );
 
+                        final card9 = _buildModuleCard(
+                          icon: Icons.note_alt_rounded,
+                          iconBg: const Color(0xFFFDF2F8),
+                          iconColor: const Color(0xFFDB2777),
+                          title: 'Preset Order Notes',
+                          subtitle: 'Manage kitchen instruction tags (extra spicy, more cheese, etc.)',
+                          stats: '$_orderNotesCount Preset Notes configured',
+                          onTap: () async {
+                            await _showOrderNotesDialog(context);
+                            _loadOverviewData();
+                          },
+                        );
+
+                        final card10 = _buildModuleCard(
+                          icon: Icons.badge_rounded,
+                          iconBg: const Color(0xFFF0FDF4),
+                          iconColor: const Color(0xFF0D9488),
+                          title: 'Staff & Employees',
+                          subtitle: 'Manage Kitchen, Service, Drivers, and Managers',
+                          stats: '$_employeeCount Employees registered',
+                          onTap: () async {
+                            await _showEmployeesDialog(context);
+                            _loadOverviewData();
+                          },
+                        );
+
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -558,6 +592,15 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                                   Expanded(child: card8),
                                 ],
                               ),
+                              const SizedBox(height: 14),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: card9),
+                                  const SizedBox(width: 14),
+                                  Expanded(child: card10),
+                                ],
+                              ),
                             ] else ...[
                               card1,
                               const SizedBox(height: 12),
@@ -574,6 +617,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                               card7,
                               const SizedBox(height: 12),
                               card8,
+                              const SizedBox(height: 12),
+                              card9,
+                              const SizedBox(height: 12),
+                              card10,
                             ],
                             const SizedBox(height: 24),
 
@@ -1320,6 +1367,429 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                 TextButton(
                   onPressed: () => Navigator.pop(dialogCtx),
                   child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showOrderNotesDialog(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        final newNoteController = TextEditingController();
+        List<OrderNoteModel> notes = [];
+        bool isLoading = true;
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            void loadNotes() async {
+              final res = await PosDatabase.instance.getOrderNotes();
+              if (ctx.mounted) {
+                setDialogState(() {
+                  notes = res;
+                  isLoading = false;
+                });
+              }
+            }
+
+            if (isLoading) {
+              loadNotes();
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDF2F8),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.note_alt_rounded, color: Color(0xFFDB2777), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Preset Order Notes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('Table: order_notes (note_id, note)', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 520,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Add new note input
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: newNoteController,
+                            decoration: InputDecoration(
+                              hintText: 'e.g. Extra Spicy, More Cheese...',
+                              labelText: 'New Preset Note',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            onSubmitted: (val) async {
+                              if (val.trim().isNotEmpty) {
+                                await PosDatabase.instance.insertOrderNote(val.trim());
+                                newNoteController.clear();
+                                loadNotes();
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final val = newNoteController.text.trim();
+                            if (val.isNotEmpty) {
+                              await PosDatabase.instance.insertOrderNote(val);
+                              newNoteController.clear();
+                              loadNotes();
+                            }
+                          },
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Add'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFDB2777),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 8),
+
+                    // Notes list
+                    isLoading
+                        ? const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                        : notes.isEmpty
+                            ? const Padding(
+                                padding: EdgeInsets.all(24),
+                                child: Center(child: Text('No preset notes configured. Add one above!')),
+                              )
+                            : ConstrainedBox(
+                                constraints: const BoxConstraints(maxHeight: 320),
+                                child: ListView.separated(
+                                  shrinkWrap: true,
+                                  itemCount: notes.length,
+                                  separatorBuilder: (c, i) => const Divider(height: 1),
+                                  itemBuilder: (ctx, index) {
+                                    final item = notes[index];
+                                    return ListTile(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      leading: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: Colors.grey.shade300),
+                                        ),
+                                        child: Text(
+                                          '#${item.noteId}',
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                                        ),
+                                      ),
+                                      title: Text(item.note, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                      trailing: IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                        tooltip: 'Delete Note',
+                                        onPressed: () async {
+                                          await PosDatabase.instance.deleteOrderNote(item.noteId);
+                                          loadNotes();
+                                        },
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Done'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showEmployeesDialog(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        List<EmployeeModel> employees = [];
+        bool isLoading = true;
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            void loadEmployees() async {
+              final res = await PosDatabase.instance.getEmployees();
+              if (ctx.mounted) {
+                setDialogState(() {
+                  employees = res;
+                  isLoading = false;
+                });
+              }
+            }
+
+            if (isLoading) {
+              loadEmployees();
+            }
+
+            Color typeBadgeColor(int type) {
+              switch (type) {
+                case 0:
+                  return const Color(0xFFEA580C); // Kitchen - Orange
+                case 1:
+                  return const Color(0xFF2563EB); // Service - Blue
+                case 3:
+                  return const Color(0xFF16A34A); // Driver - Green
+                case 4:
+                  return const Color(0xFF9333EA); // Manager - Purple
+                default:
+                  return Colors.grey.shade700;
+              }
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.badge_rounded, color: Color(0xFF0D9488), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Staff & Employees', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('0: Kitchen, 1: Service, 3: Driver, 4: Manager', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await _showAddEditEmployeeDialog(context, null);
+                      loadEmployees();
+                    },
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Add Staff'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D9488),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 580,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    isLoading
+                        ? const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                        : employees.isEmpty
+                            ? const Padding(
+                                padding: EdgeInsets.all(24),
+                                child: Center(child: Text('No employees found. Tap "Add Staff" to create one.')),
+                              )
+                            : ConstrainedBox(
+                                constraints: const BoxConstraints(maxHeight: 360),
+                                child: ListView.separated(
+                                  shrinkWrap: true,
+                                  itemCount: employees.length,
+                                  separatorBuilder: (c, i) => const Divider(height: 1),
+                                  itemBuilder: (ctx, index) {
+                                    final emp = employees[index];
+                                    final color = typeBadgeColor(emp.employeeType);
+                                    return ListTile(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      leading: CircleAvatar(
+                                        backgroundColor: color.withValues(alpha: 0.15),
+                                        child: Text(
+                                          emp.employeeName.isNotEmpty ? emp.employeeName[0].toUpperCase() : '?',
+                                          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      title: Row(
+                                        children: [
+                                          Text(emp.employeeName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: color.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: color.withValues(alpha: 0.3)),
+                                            ),
+                                            child: Text(
+                                              '${emp.typeName} (${emp.employeeType})',
+                                              style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      subtitle: Text(
+                                        emp.employeePhone != null && emp.employeePhone!.isNotEmpty
+                                            ? emp.employeePhone!
+                                            : 'No phone number',
+                                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.edit_outlined, size: 20),
+                                            tooltip: 'Edit',
+                                            onPressed: () async {
+                                              await _showAddEditEmployeeDialog(context, emp);
+                                              loadEmployees();
+                                            },
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                            tooltip: 'Delete',
+                                            onPressed: () async {
+                                              await PosDatabase.instance.deleteEmployee(emp.id);
+                                              loadEmployees();
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showAddEditEmployeeDialog(BuildContext context, EmployeeModel? existing) async {
+    final nameCtrl = TextEditingController(text: existing?.employeeName ?? '');
+    final phoneCtrl = TextEditingController(text: existing?.employeePhone ?? '');
+    int selectedType = existing?.employeeType ?? 1;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSubState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text(existing == null ? 'Add Staff Member' : 'Edit Staff Member'),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Employee Name *',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Phone Number',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int>(
+                      initialValue: [0, 1, 3, 4].contains(selectedType) ? selectedType : 1,
+                      decoration: const InputDecoration(
+                        labelText: 'Employee Role / Type *',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 0, child: Text('0 - Kitchen')),
+                        DropdownMenuItem(value: 1, child: Text('1 - Service')),
+                        DropdownMenuItem(value: 3, child: Text('3 - Driver')),
+                        DropdownMenuItem(value: 4, child: Text('4 - Manager')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setSubState(() => selectedType = val);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final name = nameCtrl.text.trim();
+                    if (name.isEmpty) return;
+                    final emp = EmployeeModel(
+                      id: existing?.id ?? 0,
+                      employeeName: name,
+                      employeePhone: phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : null,
+                      employeeType: selectedType,
+                    );
+                    if (existing == null) {
+                      await PosDatabase.instance.insertEmployee(emp);
+                    } else {
+                      await PosDatabase.instance.updateEmployee(emp);
+                    }
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F172A),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Save'),
                 ),
               ],
             );

@@ -748,6 +748,7 @@ class _MenuOrderingScreenState extends State<MenuOrderingScreen> {
       customerName: widget.table.customerName,
       customerPhone: widget.table.customerPhone,
       orderTypeLabel: widget.table.isParcel ? 'PARCEL ORDER' : 'SITDOWN ORDER',
+      orderNotes: _orderComments,
     );
 
     if (!mounted) return;
@@ -984,6 +985,7 @@ class _MenuOrderingScreenState extends State<MenuOrderingScreen> {
                       customerName: widget.table.customerName,
                       customerPhone: widget.table.customerPhone,
                       orderTypeLabel: widget.table.isParcel ? 'PARCEL ORDER' : 'SITDOWN ORDER',
+                      orderNotes: _orderComments,
                     );
                     setDialogState(() {
                       printResult = res;
@@ -2273,18 +2275,19 @@ class _MenuOrderingScreenState extends State<MenuOrderingScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0F172A),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                minimumSize: const Size(64, 42),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
               child: const Text('ADD',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
             )
           else
             Container(
+              constraints: const BoxConstraints(minHeight: 42),
               decoration: BoxDecoration(
                 color: const Color(0xFF0F172A),
                 borderRadius: BorderRadius.circular(8),
@@ -2295,10 +2298,10 @@ class _MenuOrderingScreenState extends State<MenuOrderingScreen> {
                   InkWell(
                     onTap: () => _removeItem(item),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                       child: Icon(
                         isExisting && !canDecrement ? Icons.lock : Icons.remove,
-                        size: 16,
+                        size: 18,
                         color: isExisting && !canDecrement
                             ? Colors.white60
                             : Colors.white,
@@ -2310,14 +2313,14 @@ class _MenuOrderingScreenState extends State<MenuOrderingScreen> {
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontSize: 14,
                     ),
                   ),
                   InkWell(
                     onTap: () => _addItem(item),
                     child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: Icon(Icons.add, size: 16, color: Colors.white),
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      child: Icon(Icons.add, size: 18, color: Colors.white),
                     ),
                   ),
                 ],

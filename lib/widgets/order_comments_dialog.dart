@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../database/pos_database.dart';
 
 class OrderCommentsDialog extends StatefulWidget {
   final String initialComments;
@@ -20,20 +21,35 @@ class _OrderCommentsDialogState extends State<OrderCommentsDialog> {
   late final TextEditingController _controller;
 
   final List<String> _quickSuggestions = const [
-    'Less Spicy',
     'Extra Spicy',
-    'No Onion & Garlic',
-    'Extra Napkins',
-    'Cutlery Required',
-    'Fast Track Order',
-    'Call Before Delivery',
+    'More Cheese',
+    'Less Spicy',
+    'No Onion No Garlic',
     'Pack Separately',
+    'Crispy / Well Done',
   ];
+
+  List<String> _presetNotes = [];
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialComments);
+    _presetNotes = List.from(_quickSuggestions);
+    _loadPresetNotes();
+  }
+
+  Future<void> _loadPresetNotes() async {
+    try {
+      final dbNotes = await PosDatabase.instance.getOrderNotes();
+      if (mounted) {
+        setState(() {
+          if (dbNotes.isNotEmpty) {
+            _presetNotes = dbNotes.map((n) => n.note).toList();
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -124,7 +140,7 @@ class _OrderCommentsDialogState extends State<OrderCommentsDialog> {
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children: _quickSuggestions.map((tag) {
+                  children: _presetNotes.map((tag) {
                     final isAdded = _controller.text.contains(tag);
                     return ActionChip(
                       label: Text(

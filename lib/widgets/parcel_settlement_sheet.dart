@@ -695,6 +695,7 @@ class _ParcelSettlementSheetState extends State<ParcelSettlementSheet> {
                         customerName: parcel.customerName,
                         customerPhone: parcel.customerPhone,
                         orderTypeLabel: 'PARCEL ORDER',
+                        orderNotes: parcel.orderComments,
                       );
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(

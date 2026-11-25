@@ -9,6 +9,8 @@ import '../models/restaurant_model.dart';
 import '../models/category_model.dart';
 import '../models/report_model.dart';
 import '../models/delivery_zone_model.dart';
+import '../models/order_note_model.dart';
+import '../models/employee_model.dart';
 
 class PosDatabase {
   static final PosDatabase instance = PosDatabase._init();
@@ -124,6 +126,47 @@ class PosDatabase {
             WHERE order_tax = 0.0;
           ''');
         } catch (_) {}
+
+        // Order Notes table migration & default seeding per Sam Biswas
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS order_notes (
+            note_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            note TEXT NOT NULL
+          );
+        ''');
+        final noteCountRes = await db.rawQuery('SELECT COUNT(*) as cnt FROM order_notes;');
+        final noteCount = (noteCountRes.isNotEmpty ? noteCountRes.first['cnt'] as int? : 0) ?? 0;
+        if (noteCount == 0) {
+          final defaultNotes = [
+            'Extra Spicy',
+            'More Cheese',
+            'Less Spicy',
+            'No Onion No Garlic',
+            'Pack Separately',
+            'Crispy / Well Done',
+          ];
+          for (final n in defaultNotes) {
+            await db.insert('order_notes', {'note': n});
+          }
+        }
+
+        // Employee table migration per Sam Biswas
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS employee_table (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_name TEXT NOT NULL,
+            employee_phone TEXT,
+            employee_type INTEGER NOT NULL
+          );
+        ''');
+        final empCountRes = await db.rawQuery('SELECT COUNT(*) as cnt FROM employee_table;');
+        final empCount = (empCountRes.isNotEmpty ? empCountRes.first['cnt'] as int? : 0) ?? 0;
+        if (empCount == 0) {
+          await db.insert('employee_table', {'employee_name': 'Head Chef', 'employee_phone': '9876543210', 'employee_type': 0});
+          await db.insert('employee_table', {'employee_name': 'Floor Staff', 'employee_phone': '9876543211', 'employee_type': 1});
+          await db.insert('employee_table', {'employee_name': 'Delivery Driver', 'employee_phone': '9876543212', 'employee_type': 3});
+          await db.insert('employee_table', {'employee_name': 'Store Manager', 'employee_phone': '9876543213', 'employee_type': 4});
+        }
       },
     );
   }
@@ -246,6 +289,24 @@ class PosDatabase {
         added_at TEXT NOT NULL,
         FOREIGN KEY (order_id) REFERENCES order_table (order_id) ON DELETE CASCADE,
         FOREIGN KEY (item_id) REFERENCES item_table (item_id) ON DELETE RESTRICT
+      );
+    ''');
+
+    // 7. ORDER NOTES TABLE
+    await db.execute('''
+      CREATE TABLE order_notes (
+        note_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        note TEXT NOT NULL
+      );
+    ''');
+
+    // 8. EMPLOYEE TABLE
+    await db.execute('''
+      CREATE TABLE employee_table (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_name TEXT NOT NULL,
+        employee_phone TEXT,
+        employee_type INTEGER NOT NULL
       );
     ''');
 
@@ -460,6 +521,25 @@ class PosDatabase {
         ],
       );
     }
+
+    // 8. Seed Default Order Notes
+    final defaultNotes = [
+      'Extra Spicy',
+      'More Cheese',
+      'Less Spicy',
+      'No Onion No Garlic',
+      'Pack Separately',
+      'Crispy / Well Done',
+    ];
+    for (final n in defaultNotes) {
+      await db.insert('order_notes', {'note': n});
+    }
+
+    // 9. Seed Sample Employees
+    await db.insert('employee_table', {'employee_name': 'Head Chef', 'employee_phone': '9876543210', 'employee_type': 0});
+    await db.insert('employee_table', {'employee_name': 'Floor Staff', 'employee_phone': '9876543211', 'employee_type': 1});
+    await db.insert('employee_table', {'employee_name': 'Delivery Driver', 'employee_phone': '9876543212', 'employee_type': 3});
+    await db.insert('employee_table', {'employee_name': 'Store Manager', 'employee_phone': '9876543213', 'employee_type': 4});
   }
 
   Future<void> _seedDineInOrder(
@@ -2467,6 +2547,89 @@ class PosDatabase {
       totalDrinksBusiness: totalDrinksBusiness,
       completedOrders: summaries,
       itemSales: itemSalesList,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // ORDER NOTES CRUD (note_id, note)
+  // ---------------------------------------------------------------------------
+
+  Future<List<OrderNoteModel>> getOrderNotes() async {
+    final db = await database;
+    final res = await db.query('order_notes', orderBy: 'note_id ASC');
+    return res.map((m) => OrderNoteModel.fromMap(m)).toList();
+  }
+
+  Future<int> insertOrderNote(String note) async {
+    final cleanNote = note.trim();
+    if (cleanNote.isEmpty) return 0;
+    final db = await database;
+    return await db.insert('order_notes', {'note': cleanNote});
+  }
+
+  Future<int> updateOrderNote(int noteId, String note) async {
+    final cleanNote = note.trim();
+    if (cleanNote.isEmpty) return 0;
+    final db = await database;
+    return await db.update(
+      'order_notes',
+      {'note': cleanNote},
+      where: 'note_id = ?',
+      whereArgs: [noteId],
+    );
+  }
+
+  Future<int> deleteOrderNote(int noteId) async {
+    final db = await database;
+    return await db.delete(
+      'order_notes',
+      where: 'note_id = ?',
+      whereArgs: [noteId],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // EMPLOYEE TABLE CRUD (id, employee_name, employee_phone, employee_type)
+  // ---------------------------------------------------------------------------
+
+  Future<List<EmployeeModel>> getEmployees() async {
+    final db = await database;
+    final res = await db.query('employee_table', orderBy: 'id ASC');
+    return res.map((m) => EmployeeModel.fromMap(m)).toList();
+  }
+
+  Future<List<EmployeeModel>> getEmployeesByType(int employeeType) async {
+    final db = await database;
+    final res = await db.query(
+      'employee_table',
+      where: 'employee_type = ?',
+      whereArgs: [employeeType],
+      orderBy: 'id ASC',
+    );
+    return res.map((m) => EmployeeModel.fromMap(m)).toList();
+  }
+
+  Future<int> insertEmployee(EmployeeModel employee) async {
+    final db = await database;
+    return await db.insert('employee_table', employee.toMap());
+  }
+
+  Future<int> updateEmployee(EmployeeModel employee) async {
+    final db = await database;
+    return await db.update(
+      'employee_table',
+      employee.toMap(),
+      where: 'id = ?',
+      whereArgs: [employee.id],
+    );
+  }
+
+  Future<int> deleteEmployee(int id) async {
+    final db = await database;
+    return await db.delete(
+      'employee_table',
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 }

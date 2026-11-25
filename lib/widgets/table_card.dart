@@ -267,40 +267,40 @@ class TableCard extends StatelessWidget {
               // Direct Print Bill button on open tables per Sam Biswas
               if (isOpen && onPrint != null)
                 Positioned(
-                  right: 6,
-                  bottom: 6,
+                  right: 8,
+                  bottom: 8,
                   child: Tooltip(
                     message: 'Print Receipt / Bill for ${table.name}',
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: onPrint,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
                             color: const Color(0xFF0284C7), // Blue button as drawn by Sam Biswas
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                             boxShadow: const [
                               BoxShadow(
-                                color: Colors.black38,
-                                blurRadius: 4,
-                                offset: Offset(0, 2),
+                                color: Colors.black45,
+                                blurRadius: 6,
+                                offset: Offset(0, 3),
                               ),
                             ],
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.print_rounded, color: Colors.white, size: 14),
-                              SizedBox(width: 4),
+                              Icon(Icons.print_rounded, color: Colors.white, size: 18),
+                              SizedBox(width: 6),
                               Text(
                                 'Bill',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 10.5,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.3,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                             ],

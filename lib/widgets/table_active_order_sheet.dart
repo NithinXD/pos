@@ -645,6 +645,7 @@ class _TableActiveOrderSheetState extends State<TableActiveOrderSheet> {
                         customerName: table.customerName,
                         customerPhone: table.customerPhone,
                         orderTypeLabel: table.isParcel ? 'PARCEL ORDER' : 'SITDOWN ORDER',
+                        orderNotes: table.orderComments,
                       );
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
